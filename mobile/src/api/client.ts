@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
-// In development, default to localhost:5000 (or Android emulator 10.0.2.2:5000)
-export const API_BASE_URL = 'http://localhost:5000/api/v1';
+// Supports VS Code forwarded public URL or local LAN IP for external devices
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.11:5000/api/v1';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
