@@ -28,25 +28,6 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
     ]);
   };
 
-  const menuSections = [
-    {
-      title: 'Legal Matter Management',
-      items: [
-        { icon: '📁', label: 'My Court Cases & Cause Lists', sub: 'Track hearing dates, CNR & case status' },
-        { icon: '🔒', label: 'Encrypted Document Vault', sub: 'Store identity & property records securely' },
-        { icon: '🧾', label: 'Invoices & Payment Receipts', sub: 'GST tax invoices for consultations' },
-      ],
-    },
-    {
-      title: 'Support & Compliance',
-      items: [
-        { icon: '❓', label: 'Help & Support Center', sub: 'FAQs & grievance tickets' },
-        { icon: '⚖️', label: 'Bar Council Regulatory Notice', sub: 'Rule 36 compliance & disclaimer' },
-        { icon: '🛡️', label: 'Privacy & Security Controls', sub: 'End-to-end encryption & data rights' },
-      ],
-    },
-  ];
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
@@ -69,24 +50,83 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Menu Sections */}
-      {menuSections.map((section, idx) => (
-        <View key={idx} style={styles.menuSection}>
-          <Text style={styles.sectionHeader}>{section.title}</Text>
-          <View style={styles.menuCard}>
-            {section.items.map((item, itemIdx) => (
-              <TouchableOpacity key={itemIdx} style={styles.menuItem} activeOpacity={0.7}>
-                <Text style={styles.menuIcon}>{item.icon}</Text>
-                <View style={styles.menuTextContainer}>
-                  <Text style={styles.menuLabel}>{item.label}</Text>
-                  <Text style={styles.menuSub}>{item.sub}</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+      {/* Advocate Workspace Switch Banner */}
+      <TouchableOpacity
+        style={styles.advocateBanner}
+        onPress={() => navigation.navigate('LawyerDashboard')}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.advocateBannerIcon}>⚖️</Text>
+        <View style={styles.advocateBannerText}>
+          <Text style={styles.advocateBannerTitle}>Switch to Advocate Practice Portal</Text>
+          <Text style={styles.advocateBannerSub}>Manage today's consultations, calendar & bank wallet</Text>
         </View>
-      ))}
+        <Text style={styles.chevron}>›</Text>
+      </TouchableOpacity>
+
+      {/* Legal Matter Management */}
+      <View style={styles.menuSection}>
+        <Text style={styles.sectionHeader}>Legal Matter Management</Text>
+        <View style={styles.menuCard}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('MyCases')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>📁</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>My Court Cases & Cause Lists</Text>
+              <Text style={styles.menuSub}>Track hearing dates, CNR & judicial orders</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('Vault')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>🔒</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Encrypted Document Vault</Text>
+              <Text style={styles.menuSub}>AES-256 secure storage & counsel access grants</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => Alert.alert('Tax Invoices', 'Consultation tax invoices with 18% GST breakdown downloaded.')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>🧾</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Invoices & Payment Receipts</Text>
+              <Text style={styles.menuSub}>GST tax invoices for consultations</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Advocate Credentialing */}
+      <View style={styles.menuSection}>
+        <Text style={styles.sectionHeader}>Professional Services</Text>
+        <View style={styles.menuCard}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('LawyerOnboarding')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>🎓</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Advocate Verification / KYC</Text>
+              <Text style={styles.menuSub}>Submit Bar Council certificate to accept consultations</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* Logout Button */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
@@ -124,7 +164,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   avatarCircle: {
     width: 60,
@@ -165,6 +205,33 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: colors.primary,
+  },
+  advocateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: 20,
+    gap: 12,
+  },
+  advocateBannerIcon: {
+    fontSize: 28,
+  },
+  advocateBannerText: {
+    flex: 1,
+  },
+  advocateBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  advocateBannerSub: {
+    fontSize: 11,
+    color: '#78350F',
   },
   menuSection: {
     marginBottom: 20,

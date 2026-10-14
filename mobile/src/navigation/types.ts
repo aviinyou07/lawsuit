@@ -31,7 +31,11 @@ export type RootStackParamList = {
   DescribeProblem: undefined;
   SuggestedService: { problem_text: string };
   DocumentWorkspace: { order_id: string };
+  MyCases: undefined;
   CaseDetails: { case_id: string };
+  Vault: undefined;
   LawyerDashboard: undefined;
   LawyerOnboarding: undefined;
+  LawyerCalendar: undefined;
+  LawyerWallet: undefined;
 };
