@@ -9,6 +9,8 @@ coverage/
 # Production & Build
 dist/
 build/
+.next/
+out/
 .expo/
 web-build/
 *.tsbuildinfo

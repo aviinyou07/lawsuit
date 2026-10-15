@@ -168,7 +168,7 @@ adminRouter.get('/audit-logs', authenticateToken, requireRoles('ADMIN'), async (
     `SELECT a.*, u.phone_number as actor_phone
      FROM audit_logs a
      LEFT JOIN users u ON a.actor_id = u.id
-     ORDER BY a.created_at DESC LIMIT 50`
+     ORDER BY a.created_at DESC LIMIT 100`
   );
 
   res.json({
@@ -176,4 +176,132 @@ adminRouter.get('/audit-logs', authenticateToken, requireRoles('ADMIN'), async (
     data: result.rows,
   });
 });
+
+// 7. Lawyer Payout Management (Screen 53)
+adminRouter.get('/payouts', authenticateToken, requireRoles('ADMIN'), async (_req: Request, res: Response) => {
+  const result = await query(
+    `SELECT p.*, lp.full_name as lawyer_name, lp.bar_council_number, u.phone_number as lawyer_phone
+     FROM payout_requests p
+     JOIN users u ON p.lawyer_id = u.id
+     LEFT JOIN lawyer_profiles lp ON u.id = lp.user_id
+     ORDER BY p.created_at DESC`
+  );
+
+  res.json({
+    success: true,
+    data: result.rows,
+  });
+});
+
+adminRouter.post('/payouts/:id/process', authenticateToken, requireRoles('ADMIN'), async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const adminId = req.user!.userId;
+  const utr = `IMPS${Date.now().toString().slice(-8)}`;
+
+  const result = await query(
+    `UPDATE payout_requests
+     SET status = 'PAID', bank_reference_utr = $1, processed_at = NOW()
+     WHERE id = $2
+     RETURNING *`,
+    [utr, id]
+  );
+
+  if (result.rows.length === 0) {
+    res.status(404).json({ success: false, message: 'Payout request not found' });
+    return;
+  }
+
+  await query(
+    `INSERT INTO audit_logs (actor_id, actor_role, action, target_entity, target_entity_id, after_state)
+     VALUES ($1, 'ADMIN', 'PROCESS_PAYOUT', 'PAYOUT_REQUEST', $2, $3)`,
+    [adminId, id, JSON.stringify({ status: 'PAID', utr })]
+  );
+
+  res.json({
+    success: true,
+    message: `Payout processed successfully via IMPS. UTR: ${utr}`,
+    data: result.rows[0],
+  });
+});
+
+// 8. Advocate Performance & Quality Scoring (Screen 50)
+adminRouter.get('/advocate-scores', authenticateToken, requireRoles('ADMIN'), async (_req: Request, res: Response) => {
+  const result = await query(
+    `SELECT lp.user_id, lp.full_name, lp.bar_council_number, lp.city, lp.experience_years,
+            lp.rating_average, lp.rating_count, lp.verification_status,
+            COUNT(a.id)::int as total_bookings,
+            COUNT(CASE WHEN a.status = 'COMPLETED' THEN 1 END)::int as completed_bookings,
+            COUNT(CASE WHEN a.status = 'CANCELLED' THEN 1 END)::int as cancelled_bookings
+     FROM lawyer_profiles lp
+     LEFT JOIN appointments a ON lp.user_id = a.lawyer_id
+     GROUP BY lp.user_id, lp.full_name, lp.bar_council_number, lp.city, lp.experience_years,
+              lp.rating_average, lp.rating_count, lp.verification_status
+     ORDER BY lp.rating_average DESC, total_bookings DESC`
+  );
+
+  res.json({
+    success: true,
+    data: result.rows,
+  });
+});
+
+// 9. Financial Escrow & Platform Revenue Ledger (Screen 52)
+adminRouter.get('/finance/ledger', authenticateToken, requireRoles('ADMIN'), async (_req: Request, res: Response) => {
+  const gmvRes = await query(`SELECT COALESCE(SUM(total_amount), 0)::numeric(12,2) as gmv FROM appointments WHERE status != 'CANCELLED'`);
+  const commissionRes = await query(`SELECT COALESCE(SUM(consultation_fee * 0.15), 0)::numeric(12,2) as commission FROM appointments WHERE status != 'CANCELLED'`);
+  const convenienceRes = await query(`SELECT COALESCE(SUM(platform_fee), 0)::numeric(12,2) as convenience FROM appointments WHERE status != 'CANCELLED'`);
+  const gstRes = await query(`SELECT COALESCE(SUM(tax_amount), 0)::numeric(12,2) as gst FROM appointments WHERE status != 'CANCELLED'`);
+  const escrowRes = await query(`SELECT COALESCE(SUM(escrow_locked_balance), 0)::numeric(12,2) as escrow_locked FROM lawyer_wallets`);
+  const withdrawnRes = await query(`SELECT COALESCE(SUM(total_withdrawn), 0)::numeric(12,2) as total_withdrawn FROM lawyer_wallets`);
+
+  res.json({
+    success: true,
+    data: {
+      gmv: gmvRes.rows[0].gmv,
+      platform_commission: commissionRes.rows[0].commission,
+      convenience_fees: convenienceRes.rows[0].convenience,
+      net_platform_revenue: (parseFloat(commissionRes.rows[0].commission) + parseFloat(convenienceRes.rows[0].convenience)).toFixed(2),
+      gst_collected: gstRes.rows[0].gst,
+      escrow_locked: escrowRes.rows[0].escrow_locked,
+      total_withdrawn_by_advocates: withdrawnRes.rows[0].total_withdrawn,
+    },
+  });
+});
+
+// 10. Platform System Settings (Screen 57)
+let platformSettings = {
+  platform_commission_rate: 15,
+  convenience_fee: 99,
+  gst_rate: 18,
+  consultation_buffer_minutes: 10,
+  instant_call_max_radius_km: 50,
+  emergency_sos_enabled: true,
+  maintenance_mode: false,
+  bar_council_compliance_mode: 'STRICT_ACTIVE',
+};
+
+adminRouter.get('/settings', authenticateToken, requireRoles('ADMIN'), async (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: platformSettings,
+  });
+});
+
+adminRouter.put('/settings', authenticateToken, requireRoles('ADMIN'), async (req: Request, res: Response) => {
+  const adminId = req.user!.userId;
+  platformSettings = { ...platformSettings, ...req.body };
+
+  await query(
+    `INSERT INTO audit_logs (actor_id, actor_role, action, target_entity, after_state)
+     VALUES ($1, 'ADMIN', 'UPDATE_PLATFORM_SETTINGS', 'SYSTEM_CONFIG', $2)`,
+    [adminId, JSON.stringify(platformSettings)]
+  );
+
+  res.json({
+    success: true,
+    message: 'Platform settings updated successfully',
+    data: platformSettings,
+  });
+});
+
 

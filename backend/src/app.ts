@@ -19,19 +19,13 @@ import { notificationRouter } from './modules/notifications/notification.routes.
 import { paymentRouter } from './modules/payments/payment.routes.js';
 import { disputeRouter } from './modules/disputes/dispute.routes.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 export const app = express();
 
 // Security and utility middleware
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet());
 app.use(cors({ origin: config.corsOrigin, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-
-// Web Admin Console Portal
-app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 
 // Health Check
 app.get('/health', (_req: Request, res: Response) => {
