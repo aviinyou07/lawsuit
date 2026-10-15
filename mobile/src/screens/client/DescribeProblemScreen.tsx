@@ -90,6 +90,14 @@ export const DescribeProblemScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.analyzeBtnText}>Analyze & Match Lawyers ⚡</Text>
           )}
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.detailsBtn}
+          onPress={() => navigation.navigate('ProblemDetails', { initial_problem: problemText })}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.detailsBtnText}>Specify Jurisdiction, Urgency & Notice (Step 2) →</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Quick Prompts */}
@@ -370,5 +378,15 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 12,
     fontWeight: '700',
+  },
+  detailsBtn: {
+    marginTop: 10,
+    alignSelf: 'center',
+    paddingVertical: 6,
+  },
+  detailsBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primaryLight,
   },
 });

@@ -66,7 +66,10 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.locationText}>{profile?.city || 'New Delhi, India'}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.notificationBtn}>
+        <TouchableOpacity
+          style={styles.notificationBtn}
+          onPress={() => navigation.navigate('Notifications')}
+        >
           <Text style={styles.bellIcon}>🔔</Text>
           <View style={styles.unreadDot} />
         </TouchableOpacity>
@@ -105,11 +108,34 @@ export const HomeScreen: React.FC<Props> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* Secondary Quick Actions */}
+      <View style={[styles.quickActionsGrid, { marginTop: 10 }]}>
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}
+          onPress={() => navigation.navigate('LegalNotice')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.actionIcon}>⚖️</Text>
+          <Text style={styles.actionTitle}>Issue Legal Notice</Text>
+          <Text style={styles.actionSubtitle}>Sec 138, Eviction, Dues</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: '#F3E8FF', borderColor: '#E9D5FF' }]}
+          onPress={() => navigation.navigate('Shortlist')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.actionIcon}>🔖</Text>
+          <Text style={styles.actionTitle}>Saved Advocates</Text>
+          <Text style={styles.actionSubtitle}>Compare Fees & Ratings</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Legal Categories Grid */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Legal Categories</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('SearchTab', undefined)}>
-          <Text style={styles.seeAllText}>See All</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Categories')}>
+          <Text style={styles.seeAllText}>See All (11)</Text>
         </TouchableOpacity>
       </View>
 

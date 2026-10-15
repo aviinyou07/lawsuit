@@ -6,6 +6,7 @@ export const colors = {
   secondaryLight: '#FBBF24',
   accent: '#10B981', // Emerald Success
   danger: '#EF4444', // Red Alert
+  error: '#EF4444',
   warning: '#F59E0B',
   background: '#F8FAFC', // Slate 50
   surface: '#FFFFFF',

@@ -57,30 +57,15 @@ export const BookingSummaryScreen: React.FC<Props> = ({ navigation, route }) => 
     }
   };
 
-  const handleConfirmBooking = async () => {
-    try {
-      setBookingLoading(true);
-      const res = await apiClient.post('/bookings/create', {
-        lawyer_id: lawyer.user_id,
-        consultation_mode: mode,
-        scheduled_start,
-        client_case_brief: caseBrief.trim() || 'General legal consultation',
-      });
-
-      if (res.data.success) {
-        const appt = res.data.data.appointment;
-        navigation.replace('BookingConfirmation', {
-          appointment_id: appt.id,
-          booking_reference: appt.booking_reference,
-          lawyer_name: lawyer.full_name,
-          scheduled_start,
-        });
-      }
-    } catch (err: any) {
-      Alert.alert('Booking Error', err.response?.data?.message || 'Failed to complete booking');
-    } finally {
-      setBookingLoading(false);
-    }
+  const handleConfirmBooking = () => {
+    const feeAmount = quote?.consultation_fee || quote?.total_amount || 1500;
+    navigation.navigate('Payment', {
+      lawyer: lawyer as any,
+      mode,
+      scheduled_start,
+      fee: feeAmount,
+      quote,
+    });
   };
 
   return (

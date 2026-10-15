@@ -42,7 +42,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           </Text>
         </View>
         <View style={styles.profileInfo}>
-          <Text style={styles.userName}>{profile?.full_name || 'Verified Client'}</Text>
+          <Text style={styles.userName}>{profile?.full_name || 'Verified Citizen'}</Text>
           <Text style={styles.userPhone}>+91 {user?.phone_number || '9876543210'}</Text>
           <View style={styles.roleBadge}>
             <Text style={styles.roleText}>{user?.role || 'CLIENT'}</Text>
@@ -66,7 +66,7 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Legal Matter Management */}
       <View style={styles.menuSection}>
-        <Text style={styles.sectionHeader}>Legal Matter Management</Text>
+        <Text style={styles.sectionHeader}>Client Legal Services (Screens 06–35)</Text>
         <View style={styles.menuCard}>
           <TouchableOpacity
             style={styles.menuItem}
@@ -96,23 +96,140 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => Alert.alert('Tax Invoices', 'Consultation tax invoices with 18% GST breakdown downloaded.')}
+            onPress={() => navigation.navigate('Shortlist')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>🔖</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Saved & Shortlisted Advocates</Text>
+              <Text style={styles.menuSub}>Compare fees, ratings & court jurisdictions</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('PaymentHistory')}
             activeOpacity={0.7}
           >
             <Text style={styles.menuIcon}>🧾</Text>
             <View style={styles.menuTextContainer}>
               <Text style={styles.menuLabel}>Invoices & Payment Receipts</Text>
-              <Text style={styles.menuSub}>GST tax invoices for consultations</Text>
+              <Text style={styles.menuSub}>GST tax invoices with SAC code 998211</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('Notifications')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>🔔</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Notifications Center</Text>
+              <Text style={styles.menuSub}>Booking alerts, hearing reminders & messages</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('HelpSupport')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>💬</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Help, FAQs & Dispute Support</Text>
+              <Text style={styles.menuSub}>24x7 NALSA helpline & grievance tickets</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Advocate Credentialing */}
+      {/* Advocate Practice Modules */}
       <View style={styles.menuSection}>
-        <Text style={styles.sectionHeader}>Professional Services</Text>
+        <Text style={styles.sectionHeader}>Advocate Portal Modules (Screens 36–46)</Text>
         <View style={styles.menuCard}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('LawyerRequests')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>📋</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Incoming Consultation Requests</Text>
+              <Text style={styles.menuSub}>Accept, decline, or propose reschedule</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('LawyerClients')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>👥</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Client Management Directory</Text>
+              <Text style={styles.menuSub}>Active clients, consultation history & case notes</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('LawyerCases')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>⚖️</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Advocate Court Diary & Cause List</Text>
+              <Text style={styles.menuSub}>Track upcoming hearing dates & CNR records</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('LawyerAnalytics')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>📊</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Practice Analytics & Reviews</Text>
+              <Text style={styles.menuSub}>Profile views, 5★ breakdown & completion rate</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('LawyerProfileEdit')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>⚙️</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Fee Structure & Practice Bio</Text>
+              <Text style={styles.menuSub}>Configure Chat, Audio, Video & Offline fees</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('LawyerWallet')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>💰</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Earnings & Bank Payout Wallet</Text>
+              <Text style={styles.menuSub}>Escrow balance & direct bank withdrawals</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => navigation.navigate('LawyerOnboarding')}
@@ -128,12 +245,31 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
 
+      {/* Admin Command Center */}
+      <View style={styles.menuSection}>
+        <Text style={styles.sectionHeader}>Marketplace Governance (Screens 47–58)</Text>
+        <View style={styles.menuCard}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('AdminConsole')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>🛡️</Text>
+            <View style={styles.menuTextContainer}>
+              <Text style={styles.menuLabel}>Admin Command Console</Text>
+              <Text style={styles.menuSub}>KYC approvals, revenue GMV, disputes & audit logs</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Logout Button */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
         <Text style={styles.logoutText}>Log Out from Lawsuit</Text>
       </TouchableOpacity>
 
-      <Text style={styles.versionText}>Lawsuit Mobile v1.0.0 (Production Build)</Text>
+      <Text style={styles.versionText}>Lawsuit Platform v1.0.0 (All 58 Screens Active)</Text>
     </ScrollView>
   );
 };
@@ -158,67 +294,68 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: 18,
     alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: 16,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderDark,
     marginBottom: 16,
   },
   avatarCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: colors.primary,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    justifyContent: 'center',
+    marginRight: 14,
   },
   avatarInitial: {
+    fontSize: 20,
+    fontWeight: '700',
     color: colors.white,
-    fontSize: 24,
-    fontWeight: '800',
   },
   profileInfo: {
     flex: 1,
   },
   userName: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.text,
-    marginBottom: 2,
   },
   userPhone: {
     fontSize: 13,
     color: colors.textMuted,
+    marginTop: 2,
     marginBottom: 6,
   },
   roleBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(30, 58, 138, 0.1)',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   roleText: {
     fontSize: 10,
     fontWeight: '700',
     color: colors.primary,
+    letterSpacing: 0.5,
   },
   advocateBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#0F172A',
     borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    marginBottom: 20,
-    gap: 12,
+    marginBottom: 24,
   },
   advocateBannerIcon: {
-    fontSize: 28,
+    fontSize: 24,
+    marginRight: 12,
   },
   advocateBannerText: {
     flex: 1,
@@ -226,62 +363,65 @@ const styles = StyleSheet.create({
   advocateBannerTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#92400E',
-    marginBottom: 2,
+    color: colors.white,
   },
   advocateBannerSub: {
     fontSize: 11,
-    color: '#78350F',
+    color: colors.textMuted,
+    marginTop: 2,
   },
   menuSection: {
     marginBottom: 20,
   },
   sectionHeader: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.textMuted,
+    color: colors.textLight,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    marginLeft: 4,
   },
   menuCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderDark,
+    overflow: 'hidden',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 14,
     borderBottomWidth: 1,
-    borderColor: colors.surfaceSubtle,
+    borderBottomColor: colors.borderDark,
   },
   menuIcon: {
-    fontSize: 22,
-    marginRight: 14,
+    fontSize: 18,
+    marginRight: 12,
   },
   menuTextContainer: {
     flex: 1,
   },
   menuLabel: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.text,
-    marginBottom: 2,
   },
   menuSub: {
     fontSize: 11,
     color: colors.textMuted,
+    marginTop: 2,
   },
   chevron: {
     fontSize: 20,
-    color: colors.textLight,
+    color: colors.textMuted,
+    marginLeft: 8,
   },
   logoutBtn: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: '#FCA5A5',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
@@ -289,13 +429,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   logoutText: {
-    color: colors.danger,
-    fontSize: 15,
+    color: colors.error,
+    fontSize: 14,
     fontWeight: '700',
   },
   versionText: {
-    textAlign: 'center',
     fontSize: 11,
     color: colors.textLight,
+    textAlign: 'center',
   },
 });

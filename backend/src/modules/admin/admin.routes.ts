@@ -99,3 +99,81 @@ adminRouter.post(
     });
   }
 );
+
+// 4. User Management (Screen 48)
+adminRouter.get('/users', authenticateToken, requireRoles('ADMIN'), async (_req: Request, res: Response) => {
+  const result = await query(
+    `SELECT u.id, u.phone_number, u.email, u.role, u.is_active, u.created_at,
+            COALESCE(cp.full_name, lp.full_name, 'New User') as full_name,
+            COALESCE(cp.city, lp.city, 'India') as city
+     FROM users u
+     LEFT JOIN client_profiles cp ON u.id = cp.user_id
+     LEFT JOIN lawyer_profiles lp ON u.id = lp.user_id
+     ORDER BY u.created_at DESC`
+  );
+
+  res.json({
+    success: true,
+    data: result.rows,
+  });
+});
+
+// Toggle User Block/Unblock Status (Screen 48)
+adminRouter.post('/users/:id/toggle-block', authenticateToken, requireRoles('ADMIN'), async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const adminId = req.user!.userId;
+
+  const userRes = await query('SELECT is_active FROM users WHERE id = $1', [id]);
+  if (userRes.rows.length === 0) {
+    res.status(404).json({ success: false, message: 'User not found' });
+    return;
+  }
+
+  const newStatus = !userRes.rows[0].is_active;
+  await query('UPDATE users SET is_active = $1, updated_at = NOW() WHERE id = $2', [newStatus, id]);
+
+  await query(
+    `INSERT INTO audit_logs (actor_id, actor_role, action, target_entity, target_entity_id, after_state)
+     VALUES ($1, 'ADMIN', $2, 'USER', $3, $4)`,
+    [adminId, newStatus ? 'UNBLOCK_USER' : 'BLOCK_USER', id, JSON.stringify({ is_active: newStatus })]
+  );
+
+  res.json({
+    success: true,
+    message: `User successfully ${newStatus ? 'unblocked' : 'blocked'}`,
+    data: { is_active: newStatus },
+  });
+});
+
+// 5. Booking Management (Screen 51)
+adminRouter.get('/bookings', authenticateToken, requireRoles('ADMIN'), async (_req: Request, res: Response) => {
+  const result = await query(
+    `SELECT a.*, cp.full_name as client_name, lp.full_name as lawyer_name
+     FROM appointments a
+     JOIN users u ON a.client_id = u.id
+     LEFT JOIN client_profiles cp ON u.id = cp.user_id
+     LEFT JOIN lawyer_profiles lp ON a.lawyer_id = lp.user_id
+     ORDER BY a.created_at DESC`
+  );
+
+  res.json({
+    success: true,
+    data: result.rows,
+  });
+});
+
+// 6. Audit Logs & System Activity (Screen 58)
+adminRouter.get('/audit-logs', authenticateToken, requireRoles('ADMIN'), async (_req: Request, res: Response) => {
+  const result = await query(
+    `SELECT a.*, u.phone_number as actor_phone
+     FROM audit_logs a
+     LEFT JOIN users u ON a.actor_id = u.id
+     ORDER BY a.created_at DESC LIMIT 50`
+  );
+
+  res.json({
+    success: true,
+    data: result.rows,
+  });
+});
+

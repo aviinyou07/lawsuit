@@ -13,6 +13,9 @@ import { caseRouter } from './modules/cases/case.routes.js';
 import { triageRouter } from './modules/triage/triage.routes.js';
 import { reviewRouter } from './modules/reviews/review.routes.js';
 import { adminRouter } from './modules/admin/admin.routes.js';
+import { notificationRouter } from './modules/notifications/notification.routes.js';
+import { paymentRouter } from './modules/payments/payment.routes.js';
+import { disputeRouter } from './modules/disputes/dispute.routes.js';
 
 export const app = express();
 
@@ -43,6 +46,9 @@ app.use('/api/v1/cases', caseRouter);
 app.use('/api/v1/triage', triageRouter);
 app.use('/api/v1/reviews', reviewRouter);
 app.use('/api/v1/admin', adminRouter);
+app.use('/api/v1/notifications', notificationRouter);
+app.use('/api/v1/payments', paymentRouter);
+app.use('/api/v1/disputes', disputeRouter);
 
 // Global Error Handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

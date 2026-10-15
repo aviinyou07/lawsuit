@@ -43,37 +43,12 @@ export const DocumentServicesScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const handleOrderService = async (service: DocumentService) => {
-    Alert.alert(
-      `Order ${service.name}`,
-      `Fixed Fee: ₹${service.standard_price}\nDelivery SLA: ${service.delivery_sla_days} Days\nIncludes: 1 Final Draft + ${service.revisions_included} Revisions\n\nProceed to draft intake?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Proceed to Order',
-          onPress: async () => {
-            try {
-              const res = await apiClient.post('/documents/orders', {
-                service_id: service.id,
-                submitted_inputs: {
-                  client_notes: 'Standard legal drafting request initiated via mobile app',
-                },
-              });
-
-              if (res.data.success) {
-                Alert.alert(
-                  'Order Created & Escrow Funded',
-                  `Order #${res.data.data.order_reference} is now assigned to our drafting advocate panel. You can track progress in your Workspace.`,
-                  [{ text: 'OK' }]
-                );
-              }
-            } catch (err: any) {
-              Alert.alert('Order Failed', err.response?.data?.message || 'Failed to place order');
-            }
-          },
-        },
-      ]
-    );
+  const handleOrderService = (service: DocumentService) => {
+    (navigation as any).navigate('DocumentRequest', {
+      service_id: service.id,
+      service_title: service.name,
+      base_fee: service.standard_price,
+    });
   };
 
   return (
@@ -84,6 +59,20 @@ export const DocumentServicesScreen: React.FC<Props> = ({ navigation }) => {
           Contracts, notices, affidavits, and agreements drafted and verified by senior legal practitioners.
         </Text>
       </View>
+
+      {/* Legal Notice Special Banner */}
+      <TouchableOpacity
+        style={styles.noticeBanner}
+        onPress={() => (navigation as any).navigate('LegalNotice')}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.noticeBannerIcon}>⚖️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.noticeBannerTitle}>Formal Legal Demand Notice</Text>
+          <Text style={styles.noticeBannerSub}>Section 138 NI Act, Eviction, Consumer Dues with Speed Post dispatch</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </TouchableOpacity>
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
@@ -219,5 +208,35 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 14,
     fontWeight: '700',
+  },
+  noticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    padding: 14,
+    marginHorizontal: 20,
+    marginBottom: 16,
+  },
+  noticeBannerIcon: {
+    fontSize: 22,
+    marginRight: 10,
+  },
+  noticeBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  noticeBannerSub: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  chevron: {
+    fontSize: 20,
+    color: colors.textMuted,
+    marginLeft: 6,
   },
 });

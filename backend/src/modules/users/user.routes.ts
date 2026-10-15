@@ -73,3 +73,50 @@ userRouter.put('/profile', authenticateToken, validateBody(updateProfileSchema),
     data: updateResult.rows[0],
   });
 });
+
+// 3. Get User Shortlisted Lawyers (Screen 12)
+userRouter.get('/shortlist', authenticateToken, async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+
+  const result = await query(
+    `SELECT lp.*, s.created_at as shortlisted_at
+     FROM user_shortlists s
+     JOIN lawyer_profiles lp ON s.lawyer_id = lp.user_id
+     WHERE s.user_id = $1
+     ORDER BY s.created_at DESC`,
+    [userId]
+  );
+
+  res.json({
+    success: true,
+    data: result.rows,
+  });
+});
+
+// 4. Toggle Shortlist / Bookmark Lawyer (Screen 12)
+userRouter.post('/shortlist/:lawyerId', authenticateToken, async (req: Request, res: Response) => {
+  const userId = req.user!.userId;
+  const { lawyerId } = req.params;
+
+  const existing = await query(
+    'SELECT 1 FROM user_shortlists WHERE user_id = $1 AND lawyer_id = $2',
+    [userId, lawyerId]
+  );
+
+  if (existing.rows.length > 0) {
+    await query('DELETE FROM user_shortlists WHERE user_id = $1 AND lawyer_id = $2', [userId, lawyerId]);
+    res.json({
+      success: true,
+      is_shortlisted: false,
+      message: 'Lawyer removed from shortlist',
+    });
+  } else {
+    await query('INSERT INTO user_shortlists (user_id, lawyer_id) VALUES ($1, $2)', [userId, lawyerId]);
+    res.json({
+      success: true,
+      is_shortlisted: true,
+      message: 'Lawyer added to shortlist',
+    });
+  }
+});
+
