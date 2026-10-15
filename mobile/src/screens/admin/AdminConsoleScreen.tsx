@@ -28,7 +28,7 @@ import {
   Layers,
 } from 'lucide-react-native';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'AdminConsole'>;
+type Props = any;
 
 export const AdminConsoleScreen: React.FC<Props> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<'METRICS' | 'KYC' | 'USERS' | 'BOOKINGS' | 'DISPUTES' | 'AUDIT'>('METRICS');

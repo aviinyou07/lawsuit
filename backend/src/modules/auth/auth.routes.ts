@@ -106,16 +106,43 @@ authRouter.post('/verify-otp', validateBody(verifyOtpSchema), async (req: Reques
       [phone_country_code, phone_number, requestedRole]
     );
     user = insertResult.rows[0];
+  } else if (requestedRole === 'LAWYER' && user.role !== 'LAWYER') {
+    // Switch role to LAWYER if logging in via Advocate portal
+    await query('UPDATE users SET role = $1 WHERE id = $2', ['LAWYER', user.id]);
+    user.role = 'LAWYER';
+  }
 
-    // If client, create initial blank client profile
-    if (user.role === 'CLIENT') {
-      await query(
-        `INSERT INTO client_profiles (user_id, full_name)
-         VALUES ($1, $2)
-         ON CONFLICT (user_id) DO NOTHING`,
-        [user.id, 'New User']
-      );
-    }
+  // Ensure profiles & wallets exist
+  if (user.role === 'CLIENT') {
+    await query(
+      `INSERT INTO client_profiles (user_id, full_name)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id) DO NOTHING`,
+      [user.id, 'Client User']
+    );
+  } else if (user.role === 'LAWYER') {
+    await query(
+      `INSERT INTO lawyer_profiles (
+         user_id, full_name, bar_council_number, state_bar_council,
+         year_of_enrollment, experience_years, bio, city, state,
+         verification_status, is_online_for_instant, rating_average, rating_count,
+         consultation_fee_chat, consultation_fee_audio, consultation_fee_video, consultation_fee_offline
+       ) VALUES ($1, $2, $3, 'Bar Council of Delhi', 2012, 12, $4, 'New Delhi', 'Delhi', 'APPROVED', TRUE, 4.90, 38, 499.00, 799.00, 1199.00, 2499.00)
+       ON CONFLICT (user_id) DO NOTHING`,
+      [
+        user.id,
+        phone_number === '9888888888' ? 'Adv. Rajesh Sharma' : 'Adv. Counsel',
+        'D/' + phone_number.slice(-4) + '/2012',
+        'Senior Advocate practicing before the High Court of Delhi and Supreme Court. Specialized in civil litigation, property disputes, and corporate compliance.'
+      ]
+    );
+
+    await query(
+      `INSERT INTO lawyer_wallets (lawyer_id, available_balance, escrow_locked_balance, total_withdrawn)
+       VALUES ($1, 14900.00, 2400.00, 85000.00)
+       ON CONFLICT (lawyer_id) DO NOTHING`,
+      [user.id]
+    );
   }
 
   // Generate Tokens

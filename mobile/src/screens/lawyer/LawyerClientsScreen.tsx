@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   SafeAreaView,
   TextInput,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
@@ -19,60 +22,75 @@ import {
   FileText,
   Phone,
 } from 'lucide-react-native';
+import { apiClient } from '../../api/client';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LawyerClients'>;
 
-const CLIENTS = [
-  {
-    id: 'c1',
-    name: 'Rameshwar Chand',
-    phone: '+91 9876543210',
-    city: 'New Delhi',
-    matter: 'Property Partition Suit',
-    total_consultations: 3,
-    last_met: '3 days ago',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'c2',
-    name: 'Pooja Agarwal',
-    phone: '+91 9821034567',
-    city: 'Noida',
-    matter: 'Mutual Divorce Agreement',
-    total_consultations: 2,
-    last_met: 'Last week',
-    status: 'ACTIVE',
-  },
-  {
-    id: 'c3',
-    name: 'Kunal Singhal',
-    phone: '+91 9711223344',
-    city: 'Gurugram',
-    matter: 'Sec 138 Cheque Bounce Notice',
-    total_consultations: 1,
-    last_met: '2 weeks ago',
-    status: 'COMPLETED',
-  },
-  {
-    id: 'c4',
-    name: 'Tarun Mehra',
-    phone: '+91 9988776655',
-    city: 'Faridabad',
-    matter: 'Consumer Forum Delay Claim',
-    total_consultations: 4,
-    last_met: '1 month ago',
-    status: 'ACTIVE',
-  },
-];
-
 export const LawyerClientsScreen: React.FC<Props> = ({ navigation }) => {
+  const [clients, setClients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
 
-  const filtered = CLIENTS.filter(
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const fetchClients = async () => {
+    try {
+      const res = await apiClient.get('/lawyers/me/clients');
+      if (res.data.success) {
+        setClients(res.data.data);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch clients:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const filtered = clients.filter(
     (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.matter.toLowerCase().includes(search.toLowerCase()) ||
-      c.city.toLowerCase().includes(search.toLowerCase())
+      c.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+      c.phone_number?.includes(search) ||
+      c.city?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const renderItem = ({ item }: { item: any }) => (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{(item.full_name || 'C')[0]}</Text>
+        </View>
+        <View style={styles.info}>
+          <Text style={styles.name}>{item.full_name || 'Client'}</Text>
+          <Text style={styles.phone}>📞 +91 {item.phone_number}</Text>
+          <Text style={styles.city}>📍 {item.city || 'India'} • Lang: {item.preferred_language || 'English'}</Text>
+        </View>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{item.total_consultations || 1} Sessions</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardFooter}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => Alert.alert('Client Interaction', `Phone: +91 ${item.phone_number}\nInitiate direct consultation call.`)}
+        >
+          <Phone size={14} color={colors.primary} />
+          <Text style={styles.actionText}>Call Client</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => navigation.navigate('LawyerRequests')}
+        >
+          <FileText size={14} color={colors.primary} />
+          <Text style={styles.actionText}>Case History</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   return (
@@ -81,65 +99,41 @@ export const LawyerClientsScreen: React.FC<Props> = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <ArrowLeft size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Client Directory ({CLIENTS.length})</Text>
-        <View style={{ width: 22 }} />
+        <Text style={styles.headerTitle}>Client Directory ({clients.length})</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <View style={styles.searchBar}>
-        <Search size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
+      <View style={styles.searchBox}>
+        <Search size={18} color={colors.textLight} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by client name, matter, city..."
+          placeholder="Search by client name, mobile, city..."
           placeholderTextColor={colors.textLight}
           value={search}
           onChangeText={setSearch}
         />
       </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardTop}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarInitial}>{item.name.charAt(0)}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.clientName}>{item.name}</Text>
-                <Text style={styles.clientPhone}>{item.phone} • {item.city}</Text>
-              </View>
-              <View style={styles.activeBadge}>
-                <Text style={styles.activeText}>{item.status}</Text>
-              </View>
-            </View>
-
-            <View style={styles.matterBox}>
-              <Text style={styles.matterLabel}>ONGOING LEGAL MATTER</Text>
-              <Text style={styles.matterText}>{item.matter}</Text>
-            </View>
-
-            <View style={styles.footerRow}>
-              <Text style={styles.historyText}>
-                {item.total_consultations} Consultations • Last: {item.last_met}
+      {loading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+      ) : (
+        <FlatList
+          data={filtered}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchClients(); }} />}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Users size={48} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No Client Records</Text>
+              <Text style={styles.emptySub}>
+                Clients who book consultations or retain your services will automatically be indexed here.
               </Text>
-
-              <TouchableOpacity
-                style={styles.chatBtn}
-                onPress={() =>
-                  navigation.navigate('ConsultationRoom', {
-                    appointment_id: 'demo-client-room',
-                  })
-                }
-              >
-                <MessageSquare size={14} color={colors.primaryLight} style={{ marginRight: 4 }} />
-                <Text style={styles.chatText}>Message</Text>
-              </TouchableOpacity>
             </View>
-          </View>
-        )}
-      />
+          }
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -147,136 +141,140 @@ export const LawyerClientsScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderDark,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   backBtn: {
-    padding: 6,
+    padding: 8,
+    borderRadius: 8,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.text,
   },
-  searchBar: {
+  searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceSubtle,
-    marginHorizontal: 20,
+    backgroundColor: colors.surface,
+    marginHorizontal: 16,
     marginVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.borderDark,
-    paddingHorizontal: 12,
+    borderColor: colors.border,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
-    color: colors.text,
     fontSize: 14,
+    color: colors.text,
   },
   list: {
-    paddingHorizontal: 20,
-    paddingBottom: 30,
+    padding: 16,
     gap: 12,
   },
   card: {
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.borderDark,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
     padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 12,
   },
-  cardTop: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    gap: 12,
   },
-  avatarCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.primary,
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(30, 58, 138, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  avatarInitial: {
-    color: colors.white,
+  avatarText: {
+    fontSize: 18,
     fontWeight: '800',
-    fontSize: 16,
+    color: colors.primary,
   },
-  clientName: {
+  info: {
+    flex: 1,
+    gap: 2,
+  },
+  name: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
   },
-  clientPhone: {
+  phone: {
+    fontSize: 12,
+    color: colors.textLight,
+  },
+  city: {
     fontSize: 12,
     color: colors.textMuted,
-    marginTop: 2,
   },
-  activeBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  badge: {
+    backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
-  activeText: {
+  badgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.secondary,
+    color: colors.primary,
   },
-  matterBox: {
-    backgroundColor: colors.surface,
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.borderDark,
-    marginBottom: 12,
-  },
-  matterLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.textLight,
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
-  matterText: {
-    fontSize: 13,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  footerRow: {
+  cardFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    paddingTop: 10,
   },
-  historyText: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  chatBtn: {
+  actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    gap: 6,
+    backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.borderDark,
   },
-  chatText: {
+  actionText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.primaryLight,
+    color: colors.primary,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: colors.textLight,
+    textAlign: 'center',
+    maxWidth: 280,
   },
 });

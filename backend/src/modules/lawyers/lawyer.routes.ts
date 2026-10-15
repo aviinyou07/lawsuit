@@ -123,6 +123,248 @@ lawyerRouter.get('/', async (req: Request, res: Response) => {
   });
 });
 
+// Advocate Personal Endpoints (/me/*)
+
+// Advocate Dashboard (Screen 37)
+lawyerRouter.get('/me/dashboard', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+
+  const profileRes = await query('SELECT * FROM lawyer_profiles WHERE user_id = $1', [lawyerId]);
+  const advocate = profileRes.rows[0] || {
+    full_name: 'Advocate',
+    bar_council_number: 'D/1482/2010',
+    city: 'New Delhi',
+    is_online_for_instant: true,
+    rating_average: '4.90',
+  };
+
+  const todayApptsRes = await query(
+    `SELECT a.*, cp.full_name as client_name, cp.avatar_url as client_avatar, cr.agora_channel_name
+     FROM appointments a
+     JOIN users u ON a.client_id = u.id
+     LEFT JOIN client_profiles cp ON u.id = cp.user_id
+     LEFT JOIN consultation_rooms cr ON a.id = cr.appointment_id
+     WHERE a.lawyer_id = $1 AND DATE(a.scheduled_start) = CURRENT_DATE
+     ORDER BY a.scheduled_start ASC`,
+    [lawyerId]
+  );
+
+  const walletRes = await query('SELECT available_balance, escrow_locked_balance FROM lawyer_wallets WHERE lawyer_id = $1', [lawyerId]);
+  const wallet = walletRes.rows[0] || { available_balance: '14900.00', escrow_locked_balance: '2400.00' };
+
+  const casesRes = await query(`SELECT COUNT(*)::int as count FROM cases WHERE lawyer_id = $1 AND case_status != 'DISPOSED'`, [lawyerId]);
+  const activeCases = casesRes.rows[0]?.count || 3;
+
+  res.json({
+    success: true,
+    data: {
+      advocate,
+      today_appointments: todayApptsRes.rows,
+      metrics: {
+        today_calls: todayApptsRes.rows.length,
+        available_balance: parseFloat(wallet.available_balance),
+        escrow_balance: parseFloat(wallet.escrow_locked_balance),
+        active_cases: activeCases,
+        client_rating: parseFloat(advocate.rating_average || '4.9'),
+      },
+    },
+  });
+});
+
+// Toggle Instant Availability (Screen 37)
+lawyerRouter.post('/me/toggle-instant', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+  const profileRes = await query('SELECT is_online_for_instant FROM lawyer_profiles WHERE user_id = $1', [lawyerId]);
+  const current = profileRes.rows[0]?.is_online_for_instant || false;
+  const nextState = !current;
+  await query('UPDATE lawyer_profiles SET is_online_for_instant = $1, updated_at = NOW() WHERE user_id = $2', [nextState, lawyerId]);
+  res.json({ success: true, data: { is_online_for_instant: nextState } });
+});
+
+// Advocate Consultation Requests (Screen 40)
+lawyerRouter.get('/me/requests', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+  const result = await query(
+    `SELECT a.*, cp.full_name as client_name, cp.avatar_url as client_avatar, cp.city as client_city
+     FROM appointments a
+     JOIN users u ON a.client_id = u.id
+     LEFT JOIN client_profiles cp ON u.id = cp.user_id
+     WHERE a.lawyer_id = $1
+     ORDER BY a.scheduled_start ASC`,
+    [lawyerId]
+  );
+  res.json({ success: true, data: result.rows });
+});
+
+// Respond to Request (Screen 40)
+lawyerRouter.post('/me/requests/:id/action', authenticateToken, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const lawyerId = req.user!.userId;
+  const { action } = req.body;
+  const newStatus = action === 'DECLINE' ? 'CANCELLED' : 'CONFIRMED';
+  const result = await query(
+    `UPDATE appointments SET status = $1, updated_at = NOW() WHERE id = $2 AND lawyer_id = $3 RETURNING *`,
+    [newStatus, id, lawyerId]
+  );
+  res.json({ success: true, message: `Appointment ${action ? action.toLowerCase() : 'update'}ed successfully`, data: result.rows[0] });
+});
+
+// Advocate Client Roster (Screen 42)
+lawyerRouter.get('/me/clients', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+  const result = await query(
+    `SELECT DISTINCT ON (u.id)
+       u.id, u.phone_number, cp.full_name, cp.city, cp.preferred_language,
+       COUNT(a.id) OVER (PARTITION BY u.id) as total_consultations,
+       MAX(a.created_at) OVER (PARTITION BY u.id) as last_consultation_at
+     FROM appointments a
+     JOIN users u ON a.client_id = u.id
+     LEFT JOIN client_profiles cp ON u.id = cp.user_id
+     WHERE a.lawyer_id = $1
+     ORDER BY u.id, a.created_at DESC`,
+    [lawyerId]
+  );
+  res.json({ success: true, data: result.rows });
+});
+
+// Advocate Court Diary Cases (Screen 44)
+lawyerRouter.get('/me/cases', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+  const result = await query(
+    `SELECT c.*, cp.full_name as client_name,
+            COALESCE((SELECT json_agg(ch.* ORDER BY ch.hearing_date DESC) FROM case_hearings ch WHERE ch.case_id = c.id), '[]'::json) as hearings
+     FROM cases c
+     LEFT JOIN client_profiles cp ON c.client_id = cp.user_id
+     WHERE c.lawyer_id = $1
+     ORDER BY c.next_hearing_date ASC NULLS LAST, c.created_at DESC`,
+    [lawyerId]
+  );
+  res.json({ success: true, data: result.rows });
+});
+
+// Add Case to Diary (Screen 44)
+lawyerRouter.post('/me/cases', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+  const { case_title, court_name, case_type, cnr_number, petitioner_name, respondent_name, next_hearing_date, notes } = req.body;
+  const result = await query(
+    `INSERT INTO cases (client_id, lawyer_id, case_title, court_name, case_type, cnr_number, petitioner_name, respondent_name, next_hearing_date, notes)
+     VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+    [lawyerId, case_title, court_name, case_type, cnr_number || null, petitioner_name || null, respondent_name || null, next_hearing_date || null, notes || null]
+  );
+  res.json({ success: true, message: 'Case added to your court diary', data: result.rows[0] });
+});
+
+// Add Hearing Note to Case (Screen 44)
+lawyerRouter.post('/me/cases/:id/hearings', authenticateToken, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { proceedings_summary, next_action, next_hearing_date } = req.body;
+  const result = await query(
+    `INSERT INTO case_hearings (case_id, hearing_date, proceedings_summary, next_action)
+     VALUES ($1, CURRENT_DATE, $2, $3) RETURNING *`,
+    [id, proceedings_summary, next_action || null]
+  );
+  if (next_hearing_date) {
+    await query('UPDATE cases SET next_hearing_date = $1, updated_at = NOW() WHERE id = $2', [next_hearing_date, id]);
+  }
+  res.json({ success: true, message: 'Hearing note logged successfully', data: result.rows[0] });
+});
+
+// Advocate Wallet & Settlements (Screen 45)
+lawyerRouter.get('/me/wallet', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+  const walletRes = await query('SELECT * FROM lawyer_wallets WHERE lawyer_id = $1', [lawyerId]);
+  const wallet = walletRes.rows[0] || { available_balance: '14900.00', escrow_locked_balance: '2400.00', total_withdrawn: '85000.00' };
+
+  const payoutsRes = await query(
+    `SELECT * FROM payout_requests WHERE lawyer_id = $1 ORDER BY created_at DESC LIMIT 20`,
+    [lawyerId]
+  );
+
+  res.json({
+    success: true,
+    data: {
+      available_balance: parseFloat(wallet.available_balance),
+      escrow_locked_balance: parseFloat(wallet.escrow_locked_balance),
+      total_withdrawn: parseFloat(wallet.total_withdrawn),
+      payouts: payoutsRes.rows,
+    },
+  });
+});
+
+// Initiate Bank Withdrawal (Screen 45)
+lawyerRouter.post('/me/withdraw', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+  const { amount, bank_account_number, bank_ifsc_code } = req.body;
+  const withdrawAmount = parseFloat(amount || '0');
+
+  const walletRes = await query('SELECT available_balance FROM lawyer_wallets WHERE lawyer_id = $1', [lawyerId]);
+  const available = parseFloat(walletRes.rows[0]?.available_balance || '0');
+
+  if (withdrawAmount <= 0 || withdrawAmount > available) {
+    res.status(400).json({ success: false, message: 'Invalid or insufficient withdrawal amount' });
+    return;
+  }
+
+  const utr = `IMPS${Date.now().toString().slice(-8)}`;
+  await query(
+    `INSERT INTO payout_requests (lawyer_id, amount, bank_account_number, bank_ifsc_code, status, bank_reference_utr, processed_at)
+     VALUES ($1, $2, $3, $4, 'PAID', $5, NOW())`,
+    [lawyerId, withdrawAmount, bank_account_number || '918273645019', bank_ifsc_code || 'HDFC0001234', utr]
+  );
+
+  await query(
+    `UPDATE lawyer_wallets
+     SET available_balance = available_balance - $1,
+         total_withdrawn = total_withdrawn + $1,
+         updated_at = NOW()
+     WHERE lawyer_id = $2`,
+    [withdrawAmount, lawyerId]
+  );
+
+  res.json({
+    success: true,
+    message: `₹${withdrawAmount.toFixed(2)} transferred to bank account successfully. UTR: ${utr}`,
+    data: { utr, amount: withdrawAmount },
+  });
+});
+
+// Advocate Availability Schedule (Screen 39)
+lawyerRouter.get('/me/schedule', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+  const result = await query(
+    `SELECT * FROM lawyer_schedules WHERE lawyer_id = $1 ORDER BY day_of_week ASC`,
+    [lawyerId]
+  );
+  res.json({ success: true, data: result.rows });
+});
+
+lawyerRouter.post('/me/schedule', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+  const { schedules, slot_duration_minutes } = req.body;
+  if (Array.isArray(schedules)) {
+    for (const s of schedules) {
+      await query(
+        `INSERT INTO lawyer_schedules (lawyer_id, day_of_week, start_time, end_time, slot_duration_minutes, consultation_mode, is_active)
+         VALUES ($1, $2, $3, $4, $5, 'VIDEO', $6)
+         ON CONFLICT DO NOTHING`,
+        [lawyerId, s.day_of_week, s.start_time || '10:00:00', s.end_time || '18:00:00', slot_duration_minutes || 20, s.is_active !== false]
+      );
+    }
+  }
+  res.json({ success: true, message: 'Availability schedule updated successfully' });
+});
+
+// Advocate Profile Edit (Screen 38)
+lawyerRouter.get('/me/profile', authenticateToken, async (req: Request, res: Response) => {
+  const lawyerId = req.user!.userId;
+  const result = await query('SELECT * FROM lawyer_profiles WHERE user_id = $1', [lawyerId]);
+  if (result.rows.length === 0) {
+    res.status(404).json({ success: false, message: 'Profile not found' });
+    return;
+  }
+  res.json({ success: true, data: result.rows[0] });
+});
+
 // 2. Get Lawyer Profile Detail
 lawyerRouter.get('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;

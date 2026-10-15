@@ -1,55 +1,87 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { colors } from '../../theme/colors';
+import { apiClient } from '../../api/client';
 
 export const VaultScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const [vaultDocs, setVaultDocs] = useState([
-    {
-      id: '1',
-      title: 'Aadhaar Identity Proof',
-      category: 'Identity',
-      fileSize: '1.2 MB',
-      updatedAt: '12 Oct 2026',
-      isEncrypted: true,
-    },
-    {
-      id: '2',
-      title: 'Registered Tenancy Agreement (2025-2026)',
-      category: 'Property',
-      fileSize: '3.8 MB',
-      updatedAt: '05 Sep 2026',
-      isEncrypted: true,
-    },
-    {
-      id: '3',
-      title: 'Notice under Section 138 NI Act',
-      category: 'Notices',
-      fileSize: '840 KB',
-      updatedAt: '18 Aug 2026',
-      isEncrypted: true,
-    },
-  ]);
+  const [vaultDocs, setVaultDocs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    fetchVault();
+  }, []);
+
+  const fetchVault = async () => {
+    try {
+      const res = await apiClient.get('/documents/vault');
+      if (res.data.success) {
+        setVaultDocs(res.data.data);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch vault:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   const handleUpload = () => {
     Alert.alert(
       'Upload Legal Document',
-      'Select document to encrypt and store in your private vault with AES-256 encryption.',
+      'Select a document to encrypt and store in your private digital vault with AES-256-GCM encryption.',
       [
-        { text: 'Choose from Files', onPress: () => Alert.alert('File Picker', 'Document uploaded & encrypted with AES-256.') },
+        {
+          text: 'Upload Sale Deed / Tenancy Agreement',
+          onPress: async () => {
+            try {
+              const res = await apiClient.post('/documents/vault/upload', {
+                title: 'Registered Tenancy Agreement (2026)',
+                category: 'Property',
+                file_size_bytes: 2458120,
+                mime_type: 'application/pdf',
+              });
+              if (res.data.success) {
+                Alert.alert('Vault Encrypted ✅', res.data.message || 'Saved to vault');
+                fetchVault();
+              }
+            } catch (err: any) {
+              Alert.alert('Upload Error', err.response?.data?.message || 'Could not upload document');
+            }
+          },
+        },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
   };
 
-  const handleGrantAccess = (docTitle: string) => {
+  const handleGrantAccess = (doc: any) => {
     Alert.alert(
       'Share with Advocate',
-      `Grant temporary 48-hour access to "${docTitle}" for your booked consultation? Access will automatically revoke afterwards.`,
+      `Grant temporary 48-hour access to "${doc.title}" for your consultation? Access automatically expires after 48h.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Grant 48h Access',
-          onPress: () => Alert.alert('Access Granted', 'Advocate Sharma can now securely review this document during consultation.'),
+          onPress: async () => {
+            try {
+              const res = await apiClient.post(`/documents/vault/${doc.id}/grant-access`, {});
+              if (res.data.success) {
+                Alert.alert('Access Granted ✅', res.data.message || 'Advocate granted 48h access');
+              }
+            } catch (err: any) {
+              Alert.alert('Error', 'Could not grant access');
+            }
+          },
         },
       ]
     );
@@ -64,48 +96,51 @@ export const VaultScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
         <View style={styles.badgeRow}>
           <Text style={styles.badgeText}>🔒 AES-256-GCM ENCRYPTED</Text>
         </View>
-        <Text style={styles.title}>Encrypted Document Vault</Text>
+        <Text style={styles.title}>Legal Document Vault</Text>
         <Text style={styles.subtitle}>
-          Secure repository for privileged legal records. Share time-bound access with counsel.
+          Secure digital locker for agreements, affidavits, and court records. Your files are encrypted at rest.
         </Text>
       </View>
 
-      <FlatList
-        data={vaultDocs}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <View style={styles.docCard}>
-            <View style={styles.docHeader}>
-              <View style={styles.iconWrap}>
-                <Text style={styles.fileIcon}>📄</Text>
+      {loading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+      ) : (
+        <FlatList
+          data={vaultDocs}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchVault(); }} />}
+          renderItem={({ item }) => (
+            <View style={styles.docCard}>
+              <View style={styles.docIconContainer}>
+                <Text style={styles.docIcon}>📄</Text>
               </View>
               <View style={styles.docInfo}>
                 <Text style={styles.docTitle}>{item.title}</Text>
                 <Text style={styles.docMeta}>
-                  {item.category} • {item.fileSize} • {item.updatedAt}
+                  {item.category} • {item.file_size_bytes ? `${(item.file_size_bytes / (1024 * 1024)).toFixed(1)} MB` : '1.2 MB'} • {new Date(item.updatedAt).toLocaleDateString()}
                 </Text>
+                <View style={styles.encryptionPill}>
+                  <Text style={styles.encryptionText}>🛡️ Encrypted</Text>
+                </View>
               </View>
-            </View>
-
-            <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => Alert.alert('Secure Download', 'Decrypted presigned link generated. Valid for 15 minutes.')}
-              >
-                <Text style={styles.actionText}>View</Text>
-              </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.shareBtn}
-                onPress={() => handleGrantAccess(item.title)}
+                onPress={() => handleGrantAccess(item)}
               >
-                <Text style={styles.shareText}>Grant Access to Counsel</Text>
+                <Text style={styles.shareBtnText}>Share</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        )}
-      />
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>🔒</Text>
+              <Text style={styles.emptyTitle}>Vault is Empty</Text>
+              <Text style={styles.emptySubtitle}>Store sensitive legal documents here with AES-256 encryption.</Text>
+            </View>
+          }
+        />
+      )}
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.uploadBtn} onPress={handleUpload} activeOpacity={0.8}>
@@ -119,132 +154,128 @@ export const VaultScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
   },
   header: {
-    backgroundColor: colors.surface,
-    paddingTop: 54,
     paddingHorizontal: 20,
+    paddingTop: 56,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderColor: colors.border,
   },
   backBtn: {
-    marginBottom: 8,
+    marginBottom: 12,
   },
   backBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primaryLight,
+    fontSize: 15,
+    color: colors.primary,
+    fontWeight: '700',
   },
   badgeRow: {
     alignSelf: 'flex-start',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 6,
     marginBottom: 8,
   },
   badgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.accent,
+    color: '#10B981',
   },
   title: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: colors.text,
   },
   subtitle: {
     fontSize: 13,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: 4,
     lineHeight: 18,
   },
   list: {
-    padding: 20,
-    gap: 14,
-    paddingBottom: 100,
+    padding: 16,
+    gap: 12,
   },
   docCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
-  },
-  docHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-  },
-  iconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
     backgroundColor: colors.surfaceSubtle,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  fileIcon: {
-    fontSize: 24,
+  docIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: 'rgba(30, 58, 138, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  docIcon: {
+    fontSize: 22,
   },
   docInfo: {
     flex: 1,
+    gap: 2,
   },
   docTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 2,
   },
   docMeta: {
     fontSize: 12,
     color: colors.textMuted,
   },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    borderTopWidth: 1,
-    borderColor: colors.surfaceSubtle,
-    paddingTop: 10,
+  encryptionPill: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
   },
-  actionBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: colors.borderDark,
-  },
-  actionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.text,
+  encryptionText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#10B981',
   },
   shareBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
     backgroundColor: colors.primary,
-    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
-  shareText: {
+  shareBtnText: {
+    color: colors.white,
     fontSize: 12,
     fontWeight: '700',
-    color: colors.white,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyIcon: {
+    fontSize: 40,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    textAlign: 'center',
   },
   footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    padding: 16,
     borderTopWidth: 1,
     borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   uploadBtn: {
     backgroundColor: colors.primary,

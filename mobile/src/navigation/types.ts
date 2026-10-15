@@ -20,6 +20,7 @@ export type ClientTabParamList = {
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Main: NavigatorScreenParams<ClientTabParamList>;
+  LawyerMain: undefined;
   
   // Home & Discovery (Screens 06-12)
   Categories: undefined;
@@ -65,7 +66,4 @@ export type RootStackParamList = {
   LawyerCases: undefined;
   LawyerWallet: undefined;
   LawyerAnalytics: undefined;
-
-  // Admin Panel (Screens 47-58)
-  AdminConsole: undefined;
 };

@@ -16,17 +16,42 @@ import { colors } from '../../theme/colors';
 import { apiClient } from '../../api/client';
 import { ArrowLeft, Save, ShieldCheck } from 'lucide-react-native';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'LawyerProfileEdit'>;
+type Props = any;
 
-export const LawyerProfileEditScreen: React.FC<Props> = ({ navigation }) => {
-  const [bio, setBio] = useState('Senior Advocate practicing primarily before the High Court of Delhi and District Courts. Specializes in criminal defense, property litigation, and commercial arbitrations.');
-  const [experience, setExperience] = useState('14');
+export const LawyerProfileEditScreen: React.FC<any> = ({ navigation }) => {
+  const [bio, setBio] = useState('');
+  const [experience, setExperience] = useState('12');
   const [chatFee, setChatFee] = useState('499');
-  const [audioFee, setAudioFee] = useState('999');
-  const [videoFee, setVideoFee] = useState('1500');
-  const [offlineFee, setOfflineFee] = useState('3000');
+  const [audioFee, setAudioFee] = useState('799');
+  const [videoFee, setVideoFee] = useState('1199');
+  const [offlineFee, setOfflineFee] = useState('2499');
   const [city, setCity] = useState('New Delhi');
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  React.useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await apiClient.get('/lawyers/me/profile');
+      if (res.data.success && res.data.data) {
+        const p = res.data.data;
+        if (p.bio) setBio(p.bio);
+        if (p.experience_years) setExperience(String(p.experience_years));
+        if (p.consultation_fee_chat) setChatFee(String(parseInt(p.consultation_fee_chat, 10)));
+        if (p.consultation_fee_audio) setAudioFee(String(parseInt(p.consultation_fee_audio, 10)));
+        if (p.consultation_fee_video) setVideoFee(String(parseInt(p.consultation_fee_video, 10)));
+        if (p.consultation_fee_offline) setOfflineFee(String(parseInt(p.consultation_fee_offline, 10)));
+        if (p.city) setCity(p.city);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch profile:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     try {

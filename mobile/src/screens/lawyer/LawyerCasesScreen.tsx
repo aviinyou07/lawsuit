@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
@@ -20,52 +24,133 @@ import {
   Clock,
   FileCheck,
 } from 'lucide-react-native';
+import { apiClient } from '../../api/client';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'LawyerCases'>;
+type Props = any;
 
-export const LawyerCasesScreen: React.FC<Props> = ({ navigation }) => {
-  const [cases, setCases] = useState([
-    {
-      id: 'cs-01',
-      title: 'Sharma vs. Delhi Development Authority',
-      case_number: 'WP(C) 4920/2024',
-      cnr_number: 'DCHC01-004920-2024',
-      court_name: 'High Court of Delhi (Court No. 14)',
-      next_hearing_date: '24 Oct 2026',
-      stage: 'Arguments on Interim Injunction',
-      client_name: 'Rameshwar Chand',
-      opposing_counsel: 'Standing Counsel for DDA',
-      status: 'ONGOING',
-    },
-    {
-      id: 'cs-02',
-      title: 'State vs. Vikrant Bhardwaj',
-      case_number: 'BAIL APPLN. 1290/2026',
-      cnr_number: 'DCDL02-001290-2026',
-      court_name: 'Tis Hazari District Court',
-      next_hearing_date: '18 Oct 2026',
-      stage: 'Regular Bail Hearing',
-      client_name: 'Vikrant Bhardwaj',
-      opposing_counsel: 'Additional Public Prosecutor',
-      status: 'URGENT',
-    },
-    {
-      id: 'cs-03',
-      title: 'Verma vs. Apex Builders Ltd.',
-      case_number: 'CC/891/2025',
-      cnr_number: 'NCDRC-000891-2025',
-      court_name: 'National Consumer Commission (NCDRC)',
-      next_hearing_date: '04 Nov 2026',
-      stage: 'Evidence of Complainant',
-      client_name: 'Sunil Verma',
-      opposing_counsel: 'Adv. M.K. Sibal',
-      status: 'ONGOING',
-    },
-  ]);
+export const LawyerCasesScreen: React.FC<any> = ({ navigation }) => {
+  const [cases, setCases] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
 
-  const handleAddDiaryNote = (caseItem: any) => {
-    Alert.alert('Hearing Note Added', `Logged in your e-Court case diary for ${caseItem.case_number}.`);
+  // New Case Form
+  const [caseTitle, setCaseTitle] = useState('');
+  const [courtName, setCourtName] = useState('Delhi High Court');
+  const [caseType, setCaseType] = useState('Civil / Writ Petition');
+  const [cnrNumber, setCnrNumber] = useState('');
+  const [nextHearing, setNextHearing] = useState('2026-11-15');
+
+  useEffect(() => {
+    fetchCases();
+  }, []);
+
+  const fetchCases = async () => {
+    try {
+      const res = await apiClient.get('/lawyers/me/cases');
+      if (res.data.success) {
+        setCases(res.data.data);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch cases:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
+
+  const handleAddCase = async () => {
+    if (!caseTitle.trim()) {
+      Alert.alert('Required', 'Please enter the case title');
+      return;
+    }
+    try {
+      const res = await apiClient.post('/lawyers/me/cases', {
+        case_title: caseTitle,
+        court_name: courtName,
+        case_type: caseType,
+        cnr_number: cnrNumber || `DLHC-${Date.now().toString().slice(-6)}`,
+        next_hearing_date: nextHearing,
+      });
+      if (res.data.success) {
+        Alert.alert('Case Added', 'Case successfully synchronized into your court diary.');
+        setModalVisible(false);
+        setCaseTitle('');
+        fetchCases();
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.message || 'Could not save case');
+    }
+  };
+
+  const handleAddDiaryNote = async (caseItem: any) => {
+    try {
+      await apiClient.post(`/lawyers/me/cases/${caseItem.id}/hearings`, {
+        proceedings_summary: 'Arguments heard in part. Ordered compliance filing by next listing date.',
+        next_action: 'Prepare rebuttal submissions',
+      });
+      Alert.alert(
+        'Hearing Note Logged ✅',
+        `Logged in your e-Court case diary for ${caseItem.case_title || caseItem.cnr_number}.`
+      );
+      fetchCases();
+    } catch (err: any) {
+      Alert.alert('Error', 'Could not record hearing note');
+    }
+  };
+
+  const renderItem = ({ item }: { item: any }) => (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.titleArea}>
+          <Text style={styles.caseTitle}>{item.case_title}</Text>
+          <Text style={styles.cnrText}>CNR: {item.cnr_number || 'N/A'}</Text>
+        </View>
+        <View style={styles.statusBadge}>
+          <Text style={styles.statusText}>{item.case_status || 'ONGOING'}</Text>
+        </View>
+      </View>
+
+      <View style={styles.courtRow}>
+        <Building size={16} color={colors.textLight} />
+        <Text style={styles.courtName}>{item.court_name}</Text>
+      </View>
+
+      <View style={styles.hearingBox}>
+        <View style={styles.hearingHeader}>
+          <Calendar size={16} color={colors.secondary} />
+          <Text style={styles.hearingLabel}>Next Listing Date</Text>
+        </View>
+        <Text style={styles.hearingDate}>
+          {item.next_hearing_date
+            ? new Date(item.next_hearing_date).toLocaleDateString([], {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })
+            : 'To be listed'}
+        </Text>
+        <Text style={styles.stageText}>Stage: {item.case_type || 'Arguments / Hearing'}</Text>
+      </View>
+
+      <View style={styles.partiesRow}>
+        <Text style={styles.partyText}>
+          <Text style={styles.partyLabel}>Client: </Text>
+          {item.client_name || 'Direct Client'}
+        </Text>
+      </View>
+
+      <View style={styles.cardFooter}>
+        <TouchableOpacity
+          style={styles.diaryActionBtn}
+          onPress={() => handleAddDiaryNote(item)}
+        >
+          <FileCheck size={16} color={colors.primary} />
+          <Text style={styles.diaryActionText}>Log Hearing Update</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -74,72 +159,85 @@ export const LawyerCasesScreen: React.FC<Props> = ({ navigation }) => {
           <ArrowLeft size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Advocate Court Diary ({cases.length})</Text>
-        <TouchableOpacity
-          style={styles.addBtn}
-          onPress={() => Alert.alert('Add Case', 'LinkCNR number from e-Courts to sync cause list automatically.')}
-        >
-          <Plus size={20} color={colors.primaryLight} />
+        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
+          <Plus size={22} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={cases}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.caseNumber}>{item.case_number}</Text>
-                <Text style={styles.caseTitle}>{item.title}</Text>
-              </View>
-              <View
-                style={[
-                  styles.statusBadge,
-                  item.status === 'URGENT' && { backgroundColor: 'rgba(239, 68, 68, 0.1)' },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusText,
-                    item.status === 'URGENT' && { color: colors.error },
-                  ]}
-                >
-                  {item.status}
-                </Text>
-              </View>
+      {loading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+      ) : (
+        <FlatList
+          data={cases}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchCases(); }} />}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Gavel size={48} color={colors.textLight} />
+              <Text style={styles.emptyTitle}>No Court Cases Logged</Text>
+              <Text style={styles.emptySub}>
+                Tap the + icon in the top right to link an e-Court matter or manual CNR number to your daily diary.
+              </Text>
             </View>
+          }
+        />
+      )}
 
-            <View style={styles.courtRow}>
-              <Building size={14} color={colors.textMuted} style={{ marginRight: 6 }} />
-              <Text style={styles.courtText}>{item.court_name}</Text>
-            </View>
+      {/* Add Case Modal */}
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Matter to Court Diary</Text>
 
-            <View style={styles.hearingBox}>
-              <View style={styles.hearingRow}>
-                <Clock size={16} color={colors.primaryLight} style={{ marginRight: 6 }} />
-                <Text style={styles.hearingDate}>Next Hearing: {item.next_hearing_date}</Text>
-              </View>
-              <Text style={styles.stageText}>Stage: {item.stage}</Text>
-            </View>
+            <Text style={styles.inputLabel}>Case Title / Parties</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Anand Sharma vs. ICICI Bank"
+              placeholderTextColor={colors.textLight}
+              value={caseTitle}
+              onChangeText={setCaseTitle}
+            />
 
-            <View style={styles.footerRow}>
-              <View>
-                <Text style={styles.clientLabel}>Client: {item.client_name}</Text>
-                <Text style={styles.opposingLabel}>Opp: {item.opposing_counsel}</Text>
-              </View>
+            <Text style={styles.inputLabel}>Court Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Delhi High Court (Court 14)"
+              placeholderTextColor={colors.textLight}
+              value={courtName}
+              onChangeText={setCourtName}
+            />
 
-              <TouchableOpacity
-                style={styles.diaryBtn}
-                onPress={() => handleAddDiaryNote(item)}
-              >
-                <FileCheck size={14} color={colors.white} style={{ marginRight: 4 }} />
-                <Text style={styles.diaryBtnText}>Diary Note</Text>
+            <Text style={styles.inputLabel}>Case Type</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Criminal Appeal / Bail"
+              placeholderTextColor={colors.textLight}
+              value={caseType}
+              onChangeText={setCaseType}
+            />
+
+            <Text style={styles.inputLabel}>CNR Number (Optional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. DLHC01-004921-2024"
+              placeholderTextColor={colors.textLight}
+              value={cnrNumber}
+              onChangeText={setCnrNumber}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleAddCase}>
+                <Text style={styles.saveText}>Save Matter</Text>
               </TouchableOpacity>
             </View>
           </View>
-        )}
-      />
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -147,58 +245,65 @@ export const LawyerCasesScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderDark,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   backBtn: {
-    padding: 6,
+    padding: 8,
+    borderRadius: 8,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.text,
   },
   addBtn: {
-    padding: 6,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceSubtle,
   },
   list: {
-    padding: 20,
-    gap: 14,
+    padding: 16,
+    gap: 16,
   },
   card: {
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.borderDark,
     padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 12,
   },
   cardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
   },
-  caseNumber: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.5,
+  titleArea: {
+    flex: 1,
+    paddingRight: 10,
+    gap: 2,
   },
   caseTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    marginTop: 2,
+  },
+  cnrText: {
+    fontSize: 12,
+    color: colors.textLight,
   },
   statusBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(30, 58, 138, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -206,63 +311,154 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.secondary,
+    color: colors.primary,
   },
   courtRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 8,
   },
-  courtText: {
+  courtName: {
     fontSize: 13,
     color: colors.textMuted,
+    fontWeight: '600',
   },
   hearingBox: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceSubtle,
     padding: 12,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.borderDark,
-    marginBottom: 12,
+    gap: 4,
   },
-  hearingRow: {
+  hearingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    gap: 6,
+  },
+  hearingLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.secondary,
+    textTransform: 'uppercase',
   },
   hearingDate: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: colors.text,
   },
   stageText: {
     fontSize: 12,
-    color: colors.textMuted,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  clientLabel: {
-    fontSize: 12,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  opposingLabel: {
-    fontSize: 11,
     color: colors.textLight,
   },
-  diaryBtn: {
+  partiesRow: {
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    paddingTop: 10,
+  },
+  partyLabel: {
+    fontWeight: '700',
+    color: colors.textLight,
+  },
+  partyText: {
+    fontSize: 13,
+    color: colors.text,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    paddingTop: 10,
+  },
+  diaryActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    gap: 6,
+    backgroundColor: colors.surfaceSubtle,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  diaryBtnText: {
+  diaryActionText: {
     fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: colors.textLight,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    gap: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textLight,
+  },
+  input: {
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: colors.surfaceSubtle,
+  },
+  cancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  saveBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+  },
+  saveText: {
+    fontSize: 14,
     fontWeight: '700',
     color: colors.white,
   },

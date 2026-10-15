@@ -124,11 +124,16 @@ export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
             <TouchableOpacity
               style={styles.demoFillBtn}
               onPress={() => {
-                setPhoneNumber('9876543210');
+                const num = role === 'LAWYER' ? '9888888888' : '9876543210';
+                setPhoneNumber(num);
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.demoFillText}>💡 Tap to use test number: 9876543210</Text>
+              <Text style={styles.demoFillText}>
+                {role === 'LAWYER'
+                  ? '💡 Tap to use advocate test number: 9888888888'
+                  : '💡 Tap to use client test number: 9876543210'}
+              </Text>
             </TouchableOpacity>
           </View>
         ) : (

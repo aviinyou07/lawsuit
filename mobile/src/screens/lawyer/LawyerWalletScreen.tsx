@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,31 +6,71 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { colors } from '../../theme/colors';
+import { apiClient } from '../../api/client';
 
 export const LawyerWalletScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const [availableBalance, setAvailableBalance] = useState(14900.0);
-  const [escrowBalance, setEscrowBalance] = useState(2400.0);
-  const [lifetimePayouts, setLifetimePayouts] = useState(85000.0);
+  const [walletData, setWalletData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
 
-  const pastPayouts = [
-    { id: 'PAY_101', date: '08 Oct 2026', amount: 12000, status: 'TRANSFERRED', utr: 'SBIN002938192' },
-    { id: 'PAY_102', date: '25 Sep 2026', amount: 18500, status: 'TRANSFERRED', utr: 'HDFC001928374' },
-    { id: 'PAY_103', date: '10 Sep 2026', amount: 9500, status: 'TRANSFERRED', utr: 'ICIC000192834' },
-  ];
+  useEffect(() => {
+    fetchWallet();
+  }, []);
+
+  const fetchWallet = async () => {
+    try {
+      const res = await apiClient.get('/lawyers/me/wallet');
+      if (res.data.success) {
+        setWalletData(res.data.data);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch wallet:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const availableBalance = walletData?.available_balance ?? 0;
+  const escrowBalance = walletData?.escrow_locked_balance ?? 0;
+  const lifetimePayouts = walletData?.total_withdrawn ?? 0;
+  const pastPayouts = walletData?.payouts || [];
 
   const handleWithdraw = () => {
+    if (availableBalance <= 0) {
+      Alert.alert('Zero Balance', 'You currently do not have any funds available for withdrawal.');
+      return;
+    }
+
     Alert.alert(
       'Withdraw Funds',
-      `Available to transfer: ₹${availableBalance.toFixed(2)}\n\nInitiate IMPS instant transfer to your verified HDFC Bank Account (Ending in **4921)?`,
+      `Available to transfer: ₹${availableBalance.toFixed(2)}\n\nInitiate IMPS instant transfer to your verified Bank Account (Ending in **4921)?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Confirm Withdrawal',
-          onPress: () => {
-            Alert.alert('Transfer Initiated', '₹14,900 has been sent via IMPS. UTR will be updated in your ledger within 10 minutes.');
-            setAvailableBalance(0);
+          onPress: async () => {
+            try {
+              setWithdrawing(true);
+              const res = await apiClient.post('/lawyers/me/withdraw', {
+                amount: availableBalance,
+                bank_account_number: '918273645019',
+                bank_ifsc_code: 'HDFC0001234',
+              });
+              if (res.data.success) {
+                Alert.alert('Transfer Initiated ✅', res.data.message || 'Funds transferred via IMPS.');
+                fetchWallet();
+              }
+            } catch (err: any) {
+              Alert.alert('Transfer Failed', err.response?.data?.message || 'Could not process withdrawal');
+            } finally {
+              setWithdrawing(false);
+            }
           },
         },
       ]
@@ -38,7 +78,11 @@ export const LawyerWalletScreen: React.FC<{ navigation: any }> = ({ navigation }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchWallet(); }} />}
+    >
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
         <Text style={styles.backBtnText}>← Back</Text>
       </TouchableOpacity>
@@ -50,57 +94,78 @@ export const LawyerWalletScreen: React.FC<{ navigation: any }> = ({ navigation }
         </Text>
       </View>
 
-      {/* Balance Hero Card */}
-      <View style={styles.heroCard}>
-        <Text style={styles.heroLabel}>Available for Withdrawal</Text>
-        <Text style={styles.heroAmount}>₹{availableBalance.toLocaleString('en-IN')}</Text>
+      {loading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+      ) : (
+        <>
+          {/* Balance Hero Card */}
+          <View style={styles.heroCard}>
+            <Text style={styles.heroLabel}>Available for Withdrawal</Text>
+            <Text style={styles.heroAmount}>₹{availableBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
 
-        <TouchableOpacity style={styles.withdrawBtn} onPress={handleWithdraw} activeOpacity={0.8}>
-          <Text style={styles.withdrawBtnText}>Transfer to Bank Account 🏦</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.withdrawBtn, (availableBalance <= 0 || withdrawing) && { opacity: 0.6 }]}
+              onPress={handleWithdraw}
+              disabled={availableBalance <= 0 || withdrawing}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.withdrawBtnText}>
+                {withdrawing ? 'Processing IMPS Transfer...' : 'Transfer to Bank Account 🏦'}
+              </Text>
+            </TouchableOpacity>
 
-        <View style={styles.heroRow}>
-          <View style={styles.subStat}>
-            <Text style={styles.subStatLabel}>Escrow Pending (24h)</Text>
-            <Text style={styles.subStatValue}>₹{escrowBalance.toLocaleString('en-IN')}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.subStat}>
-            <Text style={styles.subStatLabel}>Lifetime Earnings</Text>
-            <Text style={styles.subStatValue}>₹{lifetimePayouts.toLocaleString('en-IN')}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Escrow Explanation */}
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>🛡️ Platform Escrow Policy</Text>
-        <Text style={styles.infoText}>
-          In accordance with marketplace standards, consultation earnings mature and move from Escrow to your Available Balance exactly 24 hours after successful consultation completion.
-        </Text>
-      </View>
-
-      {/* Past Settlements Ledger */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Settlement History</Text>
-        {pastPayouts.map((p) => (
-          <View key={p.id} style={styles.payoutCard}>
-            <View style={styles.payoutTop}>
-              <View>
-                <Text style={styles.payoutId}>Payout #{p.id}</Text>
-                <Text style={styles.payoutDate}>{p.date}</Text>
+            <View style={styles.heroRow}>
+              <View style={styles.subStat}>
+                <Text style={styles.subStatLabel}>Escrow Pending (24h)</Text>
+                <Text style={styles.subStatValue}>₹{escrowBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
               </View>
-              <Text style={styles.payoutAmount}>₹{p.amount.toLocaleString('en-IN')}</Text>
-            </View>
-            <View style={styles.payoutBottom}>
-              <Text style={styles.utrText}>UTR: {p.utr}</Text>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>{p.status}</Text>
+              <View style={styles.statDivider} />
+              <View style={styles.subStat}>
+                <Text style={styles.subStatLabel}>Lifetime Withdrawn</Text>
+                <Text style={styles.subStatValue}>₹{lifetimePayouts.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
               </View>
             </View>
           </View>
-        ))}
-      </View>
+
+          {/* Escrow Explanation */}
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>🛡️ Platform Escrow Policy</Text>
+            <Text style={styles.infoText}>
+              In accordance with marketplace standards, consultation earnings mature and move from Escrow to your Available Balance exactly 24 hours after successful consultation completion.
+            </Text>
+          </View>
+
+          {/* Past Settlements Ledger */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Settlement History</Text>
+            {pastPayouts.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>No payout settlements yet.</Text>
+              </View>
+            ) : (
+              pastPayouts.map((p: any) => (
+                <View key={p.id} style={styles.payoutCard}>
+                  <View style={styles.payoutTop}>
+                    <View>
+                      <Text style={styles.payoutId}>Payout #{p.id.slice(0, 8)}</Text>
+                      <Text style={styles.payoutDate}>
+                        {p.processed_at ? new Date(p.processed_at).toLocaleDateString() : 'Recent'}
+                      </Text>
+                    </View>
+                    <Text style={styles.payoutAmount}>₹{Number(p.amount).toLocaleString('en-IN')}</Text>
+                  </View>
+                  <View style={styles.payoutBottom}>
+                    <Text style={styles.utrText}>UTR: {p.bank_reference_utr || 'PROCESSED'}</Text>
+                    <View style={styles.statusBadge}>
+                      <Text style={styles.statusText}>{p.status}</Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 };
@@ -112,52 +177,56 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 54,
+    paddingTop: 56,
     paddingBottom: 40,
   },
   backBtn: {
     marginBottom: 16,
+    alignSelf: 'flex-start',
   },
   backBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primaryLight,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
   },
   header: {
     marginBottom: 20,
   },
   title: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800',
     color: colors.text,
-    marginBottom: 4,
   },
   subtitle: {
     fontSize: 13,
     color: colors.textMuted,
+    marginTop: 4,
     lineHeight: 18,
   },
   heroCard: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.surface,
     borderRadius: 20,
-    padding: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   heroLabel: {
     fontSize: 13,
-    color: colors.textLight,
     fontWeight: '600',
-    marginBottom: 4,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   heroAmount: {
-    fontSize: 34,
+    fontSize: 36,
     fontWeight: '800',
-    color: colors.white,
-    marginBottom: 16,
+    color: colors.primary,
+    marginVertical: 12,
   },
   withdrawBtn: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 14,
@@ -167,16 +236,17 @@ const styles = StyleSheet.create({
   },
   withdrawBtnText: {
     color: colors.white,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   heroRow: {
     flexDirection: 'row',
     width: '100%',
-    paddingTop: 16,
     borderTopWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.border,
+    paddingTop: 16,
     justifyContent: 'space-around',
+    alignItems: 'center',
   },
   subStat: {
     alignItems: 'center',
@@ -186,29 +256,27 @@ const styles = StyleSheet.create({
     color: colors.textLight,
   },
   subStatValue: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
-    color: colors.white,
+    color: colors.text,
     marginTop: 2,
   },
   statDivider: {
     width: 1,
-    height: 24,
-    backgroundColor: '#334155',
+    height: 30,
+    backgroundColor: colors.border,
   },
   infoCard: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 16,
+    backgroundColor: colors.surfaceSubtle,
+    borderRadius: 14,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    marginBottom: 20,
-    gap: 4,
+    marginBottom: 24,
+    gap: 6,
   },
   infoTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.text,
   },
   infoText: {
     fontSize: 12,
@@ -225,11 +293,21 @@ const styles = StyleSheet.create({
   },
   payoutCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
     gap: 10,
+  },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: colors.textLight,
   },
   payoutTop: {
     flexDirection: 'row',
@@ -242,14 +320,14 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   payoutDate: {
-    fontSize: 12,
-    color: colors.textMuted,
+    fontSize: 11,
+    color: colors.textLight,
     marginTop: 2,
   },
   payoutAmount: {
     fontSize: 16,
     fontWeight: '800',
-    color: colors.accent,
+    color: colors.text,
   },
   payoutBottom: {
     flexDirection: 'row',
@@ -262,16 +340,17 @@ const styles = StyleSheet.create({
   utrText: {
     fontSize: 11,
     color: colors.textLight,
+    fontFamily: 'monospace',
   },
   statusBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   statusText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: colors.accent,
+    fontWeight: '800',
+    color: '#10B981',
   },
 });

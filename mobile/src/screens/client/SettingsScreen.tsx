@@ -245,25 +245,6 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Admin Command Center */}
-      <View style={styles.menuSection}>
-        <Text style={styles.sectionHeader}>Marketplace Governance (Screens 47–58)</Text>
-        <View style={styles.menuCard}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => navigation.navigate('AdminConsole')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.menuIcon}>🛡️</Text>
-            <View style={styles.menuTextContainer}>
-              <Text style={styles.menuLabel}>Admin Command Console</Text>
-              <Text style={styles.menuSub}>KYC approvals, revenue GMV, disputes & audit logs</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
       {/* Logout Button */}
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
         <Text style={styles.logoutText}>Log Out from Lawsuit</Text>

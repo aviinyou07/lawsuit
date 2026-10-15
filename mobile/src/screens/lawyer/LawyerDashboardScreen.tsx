@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,45 +6,88 @@ import {
   TouchableOpacity,
   Switch,
   StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
   Alert,
 } from 'react-native';
 import { colors } from '../../theme/colors';
 import { useAuthStore } from '../../store/authStore';
+import { apiClient } from '../../api/client';
 
 export const LawyerDashboardScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
-  const profile = useAuthStore((state) => state.profile);
+  const logout = useAuthStore((state) => state.logout);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [isInstantOnline, setIsInstantOnline] = useState(true);
 
-  const todayAppointments = [
-    {
-      id: 'appt_1',
-      clientName: 'Suresh Verma',
-      time: '04:30 PM - 04:50 PM',
-      mode: 'VIDEO',
-      topic: 'Anticipatory bail advice for business inquiry',
-      fee: 1199,
-    },
-    {
-      id: 'appt_2',
-      clientName: 'Priya Mehra',
-      time: '06:00 PM - 06:20 PM',
-      mode: 'AUDIO',
-      topic: 'Mutual divorce petition drafting inquiry',
-      fee: 799,
-    },
-  ];
+  useEffect(() => {
+    fetchDashboard();
+  }, []);
+
+  const fetchDashboard = async () => {
+    try {
+      const res = await apiClient.get('/lawyers/me/dashboard');
+      if (res.data.success && res.data.data) {
+        setDashboardData(res.data.data);
+        setIsInstantOnline(res.data.data.advocate?.is_online_for_instant ?? true);
+      }
+    } catch (err: any) {
+      console.error('Error fetching lawyer dashboard:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleToggleInstant = async () => {
+    try {
+      const res = await apiClient.post('/lawyers/me/toggle-instant');
+      if (res.data.success) {
+        setIsInstantOnline(res.data.data.is_online_for_instant);
+      }
+    } catch (err: any) {
+      Alert.alert('Status Error', 'Could not update instant availability');
+    }
+  };
+
+  const advocate = dashboardData?.advocate;
+  const metrics = dashboardData?.metrics;
+  const appointments = dashboardData?.today_appointments || [];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDashboard(); }} />}
+    >
       {/* Advocate Header */}
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerTop}>
           <View style={styles.barBadge}>
-            <Text style={styles.barBadgeText}>BAR COUNCIL OF DELHI • D/1482/2010</Text>
+            <Text style={styles.barBadgeText}>
+              {advocate?.state_bar_council ? advocate.state_bar_council.toUpperCase() : 'BAR COUNCIL OF DELHI'} • {advocate?.bar_council_number || 'D/1482/2010'}
+            </Text>
           </View>
-          <Text style={styles.advocateName}>Adv. {profile?.full_name || 'Rajesh Sharma'}</Text>
-          <Text style={styles.courtName}>Delhi High Court & Supreme Court</Text>
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() => {
+              Alert.alert('Sign Out', 'Are you sure you want to log out of your Advocate Portal?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Log Out', style: 'destructive', onPress: () => logout() },
+              ]);
+            }}
+          >
+            <Text style={styles.logoutText}>Log Out 🚪</Text>
+          </TouchableOpacity>
         </View>
+
+        <Text style={styles.advocateName}>{advocate?.full_name || 'Advocate'}</Text>
+        <Text style={styles.courtName}>
+          {Array.isArray(advocate?.courts_of_practice) && advocate.courts_of_practice.length > 0
+            ? advocate.courts_of_practice.join(' & ')
+            : 'Delhi High Court & Supreme Court'}
+        </Text>
       </View>
 
       {/* Online Status Toggle */}
@@ -52,82 +95,119 @@ export const LawyerDashboardScreen: React.FC<{ navigation: any }> = ({ navigatio
         <View style={styles.toggleInfo}>
           <Text style={styles.toggleTitle}>Instant Consultations</Text>
           <Text style={styles.toggleSub}>
-            {isInstantOnline ? 'You are visible for immediate client calls' : 'You are currently offline'}
+            {isInstantOnline ? '🟢 Visible in discovery for immediate consultations' : '⚪ Offline for instant calls (scheduled only)'}
           </Text>
         </View>
         <Switch
           value={isInstantOnline}
-          onValueChange={setIsInstantOnline}
+          onValueChange={handleToggleInstant}
           trackColor={{ false: colors.borderDark, true: colors.accent }}
         />
       </View>
 
       {/* KPI Cards Grid */}
       <View style={styles.metricsGrid}>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricValue}>2</Text>
+        <TouchableOpacity style={styles.metricCard} onPress={() => navigation.navigate('LawyerRequests')}>
+          <Text style={styles.metricValue}>{metrics?.today_calls ?? 0}</Text>
           <Text style={styles.metricLabel}>Today's Calls</Text>
-        </View>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricValue}>₹14,900</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.metricCard} onPress={() => navigation.navigate('LawyerWallet')}>
+          <Text style={styles.metricValue}>₹{metrics?.available_balance?.toLocaleString('en-IN') ?? '0'}</Text>
           <Text style={styles.metricLabel}>Available Balance</Text>
-        </View>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricValue}>5</Text>
-          <Text style={styles.metricLabel}>Active Cases</Text>
-        </View>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricValue}>★ 4.9</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.metricCard} onPress={() => navigation.navigate('LawyerCases')}>
+          <Text style={styles.metricValue}>{metrics?.active_cases ?? 0}</Text>
+          <Text style={styles.metricLabel}>Court Diary Cases</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.metricCard} onPress={() => navigation.navigate('LawyerAnalytics')}>
+          <Text style={styles.metricValue}>★ {metrics?.client_rating ?? '4.9'}</Text>
           <Text style={styles.metricLabel}>Client Rating</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Today's Agenda */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Today's Appointment Schedule</Text>
-        {todayAppointments.map((appt) => (
-          <View key={appt.id} style={styles.appointmentCard}>
-            <View style={styles.apptTop}>
-              <View>
-                <Text style={styles.clientName}>{appt.clientName}</Text>
-                <Text style={styles.apptTopic}>{appt.topic}</Text>
-              </View>
-              <View style={styles.modeTag}>
-                <Text style={styles.modeTagText}>{appt.mode}</Text>
-              </View>
-            </View>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Today's Consultation Schedule</Text>
+          <TouchableOpacity onPress={() => navigation.navigate('LawyerRequests')}>
+            <Text style={styles.seeAllText}>View Queue →</Text>
+          </TouchableOpacity>
+        </View>
 
-            <View style={styles.apptBottom}>
-              <Text style={styles.apptTime}>🕒 {appt.time}</Text>
-              <TouchableOpacity
-                style={styles.joinBtn}
-                onPress={() => navigation.navigate('ConsultationRoom', { appointment_id: appt.id })}
-              >
-                <Text style={styles.joinBtnText}>Join Room 📹</Text>
-              </TouchableOpacity>
-            </View>
+        {loading ? (
+          <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
+        ) : appointments.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyIcon}>📅</Text>
+            <Text style={styles.emptyTitle}>No More Consultations Today</Text>
+            <Text style={styles.emptySub}>Incoming booking requests will appear in your queue.</Text>
           </View>
-        ))}
+        ) : (
+          appointments.map((appt: any) => (
+            <View key={appt.id} style={styles.appointmentCard}>
+              <View style={styles.apptTop}>
+                <View>
+                  <Text style={styles.clientName}>{appt.client_name || 'Client'}</Text>
+                  <Text style={styles.apptTopic} numberOfLines={2}>
+                    {appt.client_case_brief || 'Legal consultation inquiry'}
+                  </Text>
+                </View>
+                <View style={styles.modeTag}>
+                  <Text style={styles.modeTagText}>{appt.consultation_mode || 'VIDEO'}</Text>
+                </View>
+              </View>
+
+              <View style={styles.apptBottom}>
+                <Text style={styles.apptTime}>
+                  🕒 {new Date(appt.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • ₹{appt.consultation_fee || '999'}
+                </Text>
+                <TouchableOpacity
+                  style={styles.joinBtn}
+                  onPress={() => navigation.navigate('ConsultationRoom', { appointment_id: appt.id })}
+                >
+                  <Text style={styles.joinBtnText}>Join Room 📹</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
       </View>
 
       {/* Quick Advocate Tools */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Practice Management</Text>
-        <View style={styles.toolsRow}>
-          <TouchableOpacity
-            style={styles.toolBtn}
-            onPress={() => Alert.alert('Calendar Manager', 'Manage working hours & blocked court dates.')}
-          >
-            <Text style={styles.toolIcon}>📅</Text>
-            <Text style={styles.toolLabel}>Availability Calendar</Text>
+        <View style={styles.toolsGrid}>
+          <TouchableOpacity style={styles.toolBtn} onPress={() => navigation.navigate('LawyerRequests')}>
+            <Text style={styles.toolIcon}>📥</Text>
+            <Text style={styles.toolLabel}>Consultation Queue</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.toolBtn}
-            onPress={() => Alert.alert('Wallet & Payouts', 'Request instant withdrawal to your verified bank account.')}
-          >
+          <TouchableOpacity style={styles.toolBtn} onPress={() => navigation.navigate('LawyerCases')}>
+            <Text style={styles.toolIcon}>⚖️</Text>
+            <Text style={styles.toolLabel}>e-Courts Diary</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.toolBtn} onPress={() => navigation.navigate('LawyerCalendar')}>
+            <Text style={styles.toolIcon}>📅</Text>
+            <Text style={styles.toolLabel}>Availability Schedule</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.toolBtn} onPress={() => navigation.navigate('LawyerWallet')}>
             <Text style={styles.toolIcon}>💳</Text>
             <Text style={styles.toolLabel}>Earnings & Payouts</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.toolBtn} onPress={() => navigation.navigate('LawyerClients')}>
+            <Text style={styles.toolIcon}>👥</Text>
+            <Text style={styles.toolLabel}>Client Roster</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.toolBtn} onPress={() => navigation.navigate('LawyerAnalytics')}>
+            <Text style={styles.toolIcon}>📈</Text>
+            <Text style={styles.toolLabel}>Practice Analytics</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -142,11 +222,17 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 56,
     paddingBottom: 40,
   },
   header: {
     marginBottom: 20,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   barBadge: {
     alignSelf: 'flex-start',
@@ -154,12 +240,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    marginBottom: 8,
   },
   barBadgeText: {
     fontSize: 10,
     fontWeight: '800',
     color: '#92400E',
+  },
+  logoutBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  logoutText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.error || '#EF4444',
   },
   advocateName: {
     fontSize: 24,
@@ -184,6 +280,7 @@ const styles = StyleSheet.create({
   },
   toggleInfo: {
     flex: 1,
+    paddingRight: 10,
   },
   toggleTitle: {
     fontSize: 15,
@@ -224,10 +321,20 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 12,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   appointmentCard: {
     backgroundColor: colors.surface,
@@ -236,6 +343,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     gap: 12,
+  },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyIcon: {
+    fontSize: 32,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  emptySub: {
+    fontSize: 12,
+    color: colors.textMuted,
   },
   apptTop: {
     flexDirection: 'row',
@@ -288,25 +416,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  toolsRow: {
+  toolsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
   toolBtn: {
-    flex: 1,
+    width: '31%',
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
     gap: 6,
   },
   toolIcon: {
-    fontSize: 28,
+    fontSize: 24,
   },
   toolLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: colors.text,
     textAlign: 'center',

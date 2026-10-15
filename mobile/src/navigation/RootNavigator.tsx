@@ -41,23 +41,50 @@ import { LawyerCasesScreen } from '../screens/lawyer/LawyerCasesScreen';
 import { LawyerWalletScreen } from '../screens/lawyer/LawyerWalletScreen';
 import { LawyerAnalyticsScreen } from '../screens/lawyer/LawyerAnalyticsScreen';
 
-// Admin Console (47-58)
-import { AdminConsoleScreen } from '../screens/admin/AdminConsoleScreen';
+import { LawyerTabNavigator } from './LawyerTabNavigator';
 
 import { useAuthStore } from '../store/authStore';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const RootNavigator: React.FC = () => {
+  const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       {!isAuthenticated ? (
         <Stack.Screen name="Auth" component={AuthNavigator} />
+      ) : user?.role === 'LAWYER' ? (
+        <>
+          {/* Advocate Primary Tabs */}
+          <Stack.Screen name="LawyerMain" component={LawyerTabNavigator} />
+
+          {/* Advocate Detail & Management Screens */}
+          <Stack.Screen name="LawyerDashboard" component={LawyerDashboardScreen} />
+          <Stack.Screen name="LawyerRequests" component={LawyerRequestsScreen} />
+          <Stack.Screen name="LawyerCases" component={LawyerCasesScreen} />
+          <Stack.Screen name="LawyerCalendar" component={LawyerCalendarScreen} />
+          <Stack.Screen name="LawyerProfileEdit" component={LawyerProfileEditScreen} />
+          <Stack.Screen name="LawyerClients" component={LawyerClientsScreen} />
+          <Stack.Screen name="LawyerWallet" component={LawyerWalletScreen} />
+          <Stack.Screen name="LawyerAnalytics" component={LawyerAnalyticsScreen} />
+          <Stack.Screen name="LawyerOnboarding" component={LawyerOnboardingScreen} />
+
+          {/* Shared Consultation & Document Rooms */}
+          <Stack.Screen
+            name="ConsultationRoom"
+            component={ConsultationRoomScreen}
+            options={{ gestureEnabled: false }}
+          />
+          <Stack.Screen name="DocumentWorkspace" component={DocumentWorkspaceScreen} />
+          <Stack.Screen name="CaseDetails" component={CaseDetailsScreen} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+        </>
       ) : (
         <>
-          {/* Main Tabs */}
+          {/* Client Primary Tabs */}
           <Stack.Screen name="Main" component={ClientTabNavigator} />
 
           {/* Discovery & Booking */}
@@ -93,20 +120,6 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
           <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
           <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
-
-          {/* Lawyer App */}
-          <Stack.Screen name="LawyerDashboard" component={LawyerDashboardScreen} />
-          <Stack.Screen name="LawyerOnboarding" component={LawyerOnboardingScreen} />
-          <Stack.Screen name="LawyerProfileEdit" component={LawyerProfileEditScreen} />
-          <Stack.Screen name="LawyerCalendar" component={LawyerCalendarScreen} />
-          <Stack.Screen name="LawyerRequests" component={LawyerRequestsScreen} />
-          <Stack.Screen name="LawyerClients" component={LawyerClientsScreen} />
-          <Stack.Screen name="LawyerCases" component={LawyerCasesScreen} />
-          <Stack.Screen name="LawyerWallet" component={LawyerWalletScreen} />
-          <Stack.Screen name="LawyerAnalytics" component={LawyerAnalyticsScreen} />
-
-          {/* Admin Command Center (Screens 47-58) */}
-          <Stack.Screen name="AdminConsole" component={AdminConsoleScreen} />
         </>
       )}
     </Stack.Navigator>

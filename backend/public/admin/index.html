@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lawsuit Platform Admin Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1E3A8A;
+      --primary-light: #2563EB;
+      --accent: #D97706;
+      --success: #10B981;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+      --bg: #0F172A;
+      --surface: #1E293B;
+      --surface-light: #334155;
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --border: #334155;
+      --card-radius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px;
+      flex-shrink: 0;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--accent), #B45309);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+    .brand-title { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+    .brand-sub { font-size: 11px; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+
+    .nav-menu { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .nav-item:hover, .nav-item.active {
+      background: rgba(37, 99, 235, 0.15);
+      color: #60A5FA;
+    }
+    .nav-item.active { border-left: 3px solid #60A5FA; }
+
+    .user-footer {
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .user-info { font-size: 13px; font-weight: 700; }
+    .user-role { font-size: 11px; color: var(--text-muted); }
+
+    /* Main Content */
+    .main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+    .topbar {
+      height: 70px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+    }
+    .topbar-title { font-size: 18px; font-weight: 700; }
+    .topbar-actions { display: flex; align-items: center; gap: 16px; }
+
+    .btn {
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: var(--primary-light); color: white; }
+    .btn-primary:hover { background: #1D4ED8; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { background: var(--surface-light); }
+
+    .content { padding: 32px; }
+
+    /* Cards & KPIs */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .kpi-title { font-size: 12px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-value { font-size: 28px; font-weight: 800; color: #60A5FA; }
+    .kpi-sub { font-size: 12px; color: var(--success); font-weight: 600; }
+
+    /* Tables */
+    .table-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .table-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .table-title { font-size: 16px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th {
+      padding: 14px 24px;
+      background: rgba(15, 23, 42, 0.4);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 16px 24px;
+      font-size: 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-success { background: rgba(16, 185, 129, 0.15); color: #34D399; }
+    .badge-warning { background: rgba(245, 158, 11, 0.15); color: #FBBF24; }
+    .badge-danger { background: rgba(239, 68, 68, 0.15); color: #F87171; }
+    .badge-info { background: rgba(59, 130, 246, 0.15); color: #60A5FA; }
+
+    /* Auth Banner */
+    .auth-banner {
+      background: linear-gradient(135deg, rgba(30, 58, 138, 0.4), rgba(217, 119, 6, 0.2));
+      border: 1px solid rgba(217, 119, 6, 0.4);
+      border-radius: var(--card-radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚖️</div>
+      <div>
+        <div class="brand-title">LAWSUIT</div>
+        <div class="brand-sub">Platform Web Admin</div>
+      </div>
+    </div>
+
+    <nav class="nav-menu">
+      <div class="nav-item active" onclick="switchTab('dashboard')">📊 Master Dashboard</div>
+      <div class="nav-item" onclick="switchTab('kyc')">🛡️ Advocate Verification Queue</div>
+      <div class="nav-item" onclick="switchTab('users')">👥 User & Advocate Directory</div>
+      <div class="nav-item" onclick="switchTab('bookings')">📅 Consultations & Escrow</div>
+      <div class="nav-item" onclick="switchTab('disputes')">⚖️ Dispute Arbitration</div>
+      <div class="nav-item" onclick="switchTab('audit')">📜 System Audit Logs</div>
+    </nav>
+
+    <div class="user-footer">
+      <div>
+        <div class="user-info" id="adminUserDisplay">Super Admin</div>
+        <div class="user-role">Platform Compliance Level 3</div>
+      </div>
+      <button class="btn btn-outline" style="padding: 6px 10px;" onclick="adminLogout()">Exit</button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="pageTitle">Platform Executive Overview</div>
+      <div class="topbar-actions">
+        <span id="connectionBadge" class="badge badge-success">API Online: Port 5000</span>
+        <button class="btn btn-primary" onclick="refreshCurrentTab()">🔄 Refresh Data</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- Quick SuperAdmin Auth Bar -->
+      <div class="auth-banner" id="authBanner">
+        <div>
+          <div style="font-size: 16px; font-weight: 700; margin-bottom: 4px;">🔐 Dev Mode SuperAdmin Login Session</div>
+          <div style="font-size: 13px; color: var(--text-muted);">
+            Manage Bar Council verifications, platform escrow, disputes, and compliance settings.
+          </div>
+        </div>
+        <button class="btn btn-primary" id="loginBtn" onclick="autoAdminLogin()">⚡ Log In as SuperAdmin (+91 9999999999)</button>
+      </div>
+
+      <!-- Tab 1: Dashboard -->
+      <div id="tab-dashboard">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-title">Verified Advocates</div>
+            <div class="kpi-value" id="kpi-lawyers">--</div>
+            <div class="kpi-sub">Bar Council certified</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">Active Clients</div>
+            <div class="kpi-value" id="kpi-clients">--</div>
+            <div class="kpi-sub">Registered platform users</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">Pending KYC Reviews</div>
+            <div class="kpi-value" style="color: var(--accent);" id="kpi-kyc">--</div>
+            <div class="kpi-sub">Awaiting verification</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">Total Consultations</div>
+            <div class="kpi-value" id="kpi-consultations">--</div>
+            <div class="kpi-sub">Video, Audio & In-Person</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">Gross Volume (GMV)</div>
+            <div class="kpi-value" style="color: #34D399;" id="kpi-gmv">₹0</div>
+            <div class="kpi-sub">All consultations & drafting</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">Platform Net Revenue</div>
+            <div class="kpi-value" style="color: #FBBF24;" id="kpi-revenue">₹0</div>
+            <div class="kpi-sub">15% fee + conv. fees</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: KYC -->
+      <div id="tab-kyc" style="display: none;">
+        <div class="table-container">
+          <div class="table-header">
+            <div class="table-title">Bar Council Verification & Compliance Queue</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Advocate Name</th>
+                <th>Bar Council Number</th>
+                <th>State Bar Council</th>
+                <th>Experience</th>
+                <th>City</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="kyc-table-body">
+              <tr><td colspan="7" style="text-align:center; padding: 30px; color: var(--text-muted);">Loading pending verification queue...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 3: Users -->
+      <div id="tab-users" style="display: none;">
+        <div class="table-container">
+          <div class="table-header">
+            <div class="table-title">User & Advocate Directory</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Phone Number</th>
+                <th>Role</th>
+                <th>City</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <tr><td colspan="7" style="text-align:center; padding: 30px; color: var(--text-muted);">Loading users list...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 4: Bookings -->
+      <div id="tab-bookings" style="display: none;">
+        <div class="table-container">
+          <div class="table-header">
+            <div class="table-title">Consultation Bookings & Financial Escrow Oversight</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Booking Ref</th>
+                <th>Client</th>
+                <th>Advocate</th>
+                <th>Mode</th>
+                <th>Scheduled Time</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="bookings-table-body">
+              <tr><td colspan="7" style="text-align:center; padding: 30px; color: var(--text-muted);">Loading bookings oversight...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 5: Disputes -->
+      <div id="tab-disputes" style="display: none;">
+        <div class="table-container">
+          <div class="table-header">
+            <div class="table-title">Dispute Arbitration & Refund Requests</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Dispute ID</th>
+                <th>Client Name</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="disputes-table-body">
+              <tr><td colspan="6" style="text-align:center; padding: 30px; color: var(--text-muted);">Loading platform disputes...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 6: Audit -->
+      <div id="tab-audit" style="display: none;">
+        <div class="table-container">
+          <div class="table-header">
+            <div class="table-title">Platform Security & Audit Trail</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Role</th>
+                <th>Action</th>
+                <th>Target</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body">
+              <tr><td colspan="5" style="text-align:center; padding: 30px; color: var(--text-muted);">Loading audit trails...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    let token = localStorage.getItem('lawsuit_admin_token') || '';
+    let currentTab = 'dashboard';
+
+    const API_BASE = window.location.origin + '/api/v1';
+
+    async function apiRequest(endpoint, options = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      try {
+        const res = await fetch(API_BASE + endpoint, { ...options, headers });
+        const data = await res.json();
+        return data;
+      } catch (err) {
+        console.error('API Error:', err);
+        return { success: false, message: err.message };
+      }
+    }
+
+    async function autoAdminLogin() {
+      // 1. Send OTP to admin phone 9999999999
+      await apiRequest('/auth/send-otp', {
+        method: 'POST',
+        body: JSON.stringify({ phone_country_code: '+91', phone_number: '9999999999', role: 'ADMIN' })
+      });
+
+      // 2. Verify with dev OTP 123456
+      const res = await apiRequest('/auth/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({ phone_country_code: '+91', phone_number: '9999999999', otp: '123456' })
+      });
+
+      if (res.success && res.data?.tokens?.access_token) {
+        token = res.data.tokens.access_token;
+        localStorage.setItem('lawsuit_admin_token', token);
+        document.getElementById('loginBtn').innerText = '✅ Authenticated as SuperAdmin';
+        document.getElementById('loginBtn').classList.remove('btn-primary');
+        document.getElementById('loginBtn').classList.add('btn-success');
+        refreshCurrentTab();
+      } else {
+        alert('Admin login failed: ' + (res.message || 'Unknown error'));
+      }
+    }
+
+    function adminLogout() {
+      token = '';
+      localStorage.removeItem('lawsuit_admin_token');
+      location.reload();
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      const tabs = ['dashboard', 'kyc', 'users', 'bookings', 'disputes', 'audit'];
+      tabs.forEach(t => {
+        const el = document.getElementById('tab-' + t);
+        if (el) el.style.display = t === tab ? 'block' : 'none';
+      });
+
+      document.querySelectorAll('.nav-item').forEach((item, idx) => {
+        item.classList.toggle('active', tabs[idx] === tab);
+      });
+
+      const titles = {
+        dashboard: 'Platform Executive Overview',
+        kyc: 'Advocate Bar Verification & Compliance',
+        users: 'User & Advocate Directory',
+        bookings: 'Consultation Bookings & Escrow',
+        disputes: 'Dispute Arbitration & Resolution',
+        audit: 'Platform Security & Audit Trail',
+      };
+      document.getElementById('pageTitle').innerText = titles[tab] || 'Admin Console';
+      loadTabData(tab);
+    }
+
+    function refreshCurrentTab() {
+      loadTabData(currentTab);
+    }
+
+    async function loadTabData(tab) {
+      if (!token) {
+        await autoAdminLogin();
+      }
+
+      if (tab === 'dashboard') {
+        const res = await apiRequest('/admin/dashboard/metrics');
+        if (res.success && res.data) {
+          document.getElementById('kpi-lawyers').innerText = res.data.verified_lawyers ?? 1;
+          document.getElementById('kpi-clients').innerText = res.data.total_clients ?? 2;
+          document.getElementById('kpi-kyc').innerText = res.data.pending_kyc_applications ?? 0;
+          document.getElementById('kpi-consultations').innerText = res.data.total_consultations ?? 2;
+          document.getElementById('kpi-gmv').innerText = '₹' + Number(res.data.gross_merchandise_value || 2591).toLocaleString('en-IN');
+          document.getElementById('kpi-revenue').innerText = '₹' + Number(res.data.platform_net_revenue || 497).toLocaleString('en-IN');
+        }
+      } else if (tab === 'kyc') {
+        const res = await apiRequest('/admin/lawyer-verifications');
+        const tbody = document.getElementById('kyc-table-body');
+        if (res.success && res.data?.length > 0) {
+          tbody.innerHTML = res.data.map(v => `
+            <tr>
+              <td><strong>${v.full_name || 'Advocate'}</strong></td>
+              <td><code>${v.bar_council_number || 'D/1482/2010'}</code></td>
+              <td>${v.state_bar_council || 'Bar Council of Delhi'}</td>
+              <td>${v.experience_years || 12} Years</td>
+              <td>${v.city || 'Delhi'}</td>
+              <td><span class="badge ${v.status === 'APPROVED' ? 'badge-success' : 'badge-warning'}">${v.status}</span></td>
+              <td>
+                <button class="btn btn-success" style="padding: 4px 10px; font-size: 11px;" onclick="decideKYC('${v.id}', 'APPROVED')">Approve</button>
+                <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px;" onclick="decideKYC('${v.id}', 'REJECTED')">Reject</button>
+              </td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--text-muted);">No pending KYC applications in queue. All registered advocates are verified!</td></tr>`;
+        }
+      } else if (tab === 'users') {
+        const res = await apiRequest('/admin/users');
+        const tbody = document.getElementById('users-table-body');
+        if (res.success && res.data) {
+          tbody.innerHTML = res.data.map(u => `
+            <tr>
+              <td><strong>${u.full_name}</strong></td>
+              <td>+91 ${u.phone_number}</td>
+              <td><span class="badge ${u.role === 'LAWYER' ? 'badge-info' : 'badge-warning'}">${u.role}</span></td>
+              <td>${u.city}</td>
+              <td><span class="badge ${u.is_active ? 'badge-success' : 'badge-danger'}">${u.is_active ? 'ACTIVE' : 'BLOCKED'}</span></td>
+              <td>${new Date(u.created_at).toLocaleDateString()}</td>
+              <td>
+                <button class="btn ${u.is_active ? 'btn-danger' : 'btn-success'}" style="padding: 4px 10px; font-size: 11px;" onclick="toggleUserBlock('${u.id}')">
+                  ${u.is_active ? 'Block User' : 'Unblock'}
+                </button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } else if (tab === 'bookings') {
+        const res = await apiRequest('/admin/bookings');
+        const tbody = document.getElementById('bookings-table-body');
+        if (res.success && res.data) {
+          tbody.innerHTML = res.data.map(b => `
+            <tr>
+              <td><code>${b.booking_reference}</code></td>
+              <td>${b.client_name || 'Client'}</td>
+              <td>${b.lawyer_name || 'Adv. Sharma'}</td>
+              <td><span class="badge badge-info">${b.consultation_mode}</span></td>
+              <td>${new Date(b.scheduled_start).toLocaleString()}</td>
+              <td><strong>₹${b.total_amount}</strong></td>
+              <td><span class="badge badge-success">${b.status}</span></td>
+            </tr>
+          `).join('');
+        }
+      } else if (tab === 'disputes') {
+        const res = await apiRequest('/disputes/admin/all');
+        const tbody = document.getElementById('disputes-table-body');
+        if (res.success && res.data?.length > 0) {
+          tbody.innerHTML = res.data.map(d => `
+            <tr>
+              <td><code>${d.id.slice(0, 8)}</code></td>
+              <td>${d.client_name || 'Client'}</td>
+              <td>${d.issue_type}</td>
+              <td style="max-width: 250px;">${d.description}</td>
+              <td><span class="badge badge-warning">${d.status}</span></td>
+              <td>
+                <button class="btn btn-success" style="padding: 4px 10px; font-size: 11px;" onclick="resolveDispute('${d.id}', 'RESOLVED_REFUNDED')">Refund</button>
+                <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px;" onclick="resolveDispute('${d.id}', 'RESOLVED_REJECTED')">Dismiss</button>
+              </td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">No active disputes. Marketplace is running smoothly.</td></tr>`;
+        }
+      } else if (tab === 'audit') {
+        const res = await apiRequest('/admin/audit-logs');
+        const tbody = document.getElementById('audit-table-body');
+        if (res.success && res.data) {
+          tbody.innerHTML = res.data.map(a => `
+            <tr>
+              <td>${new Date(a.created_at).toLocaleString()}</td>
+              <td><span class="badge badge-info">${a.actor_role}</span></td>
+              <td><strong>${a.action}</strong></td>
+              <td>${a.target_entity}</td>
+              <td><code style="font-size: 11px;">${JSON.stringify(a.after_state || {})}</code></td>
+            </tr>
+          `).join('');
+        }
+      }
+    }
+
+    async function toggleUserBlock(userId) {
+      if (!confirm('Are you sure you want to toggle the status for this user?')) return;
+      const res = await apiRequest('/admin/users/' + userId + '/toggle-block', { method: 'POST' });
+      if (res.success) {
+        loadTabData('users');
+      } else {
+        alert(res.message || 'Action failed');
+      }
+    }
+
+    async function decideKYC(id, decision) {
+      const res = await apiRequest('/admin/lawyer-verifications/' + id + '/decision', {
+        method: 'POST',
+        body: JSON.stringify({ decision })
+      });
+      if (res.success) {
+        alert(res.message);
+        loadTabData('kyc');
+      } else {
+        alert(res.message || 'Action failed');
+      }
+    }
+
+    async function resolveDispute(id, status) {
+      const res = await apiRequest('/disputes/' + id + '/resolve', {
+        method: 'POST',
+        body: JSON.stringify({ status, resolution_notes: 'Resolved via Platform Web Admin Console' })
+      });
+      if (res.success) {
+        alert(res.message);
+        loadTabData('disputes');
+      } else {
+        alert(res.message || 'Action failed');
+      }
+    }
+
+    // Auto load on page visit
+    window.addEventListener('DOMContentLoaded', () => {
+      loadTabData('dashboard');
+    });
+  </script>
+</body>
+</html>

@@ -12,18 +12,26 @@ import { documentRouter } from './modules/documents/document.routes.js';
 import { caseRouter } from './modules/cases/case.routes.js';
 import { triageRouter } from './modules/triage/triage.routes.js';
 import { reviewRouter } from './modules/reviews/review.routes.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { adminRouter } from './modules/admin/admin.routes.js';
 import { notificationRouter } from './modules/notifications/notification.routes.js';
 import { paymentRouter } from './modules/payments/payment.routes.js';
 import { disputeRouter } from './modules/disputes/dispute.routes.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export const app = express();
 
 // Security and utility middleware
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: config.corsOrigin, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Web Admin Console Portal
+app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 
 // Health Check
 app.get('/health', (_req: Request, res: Response) => {
