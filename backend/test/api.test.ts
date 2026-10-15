@@ -102,13 +102,14 @@ describe('Lawsuit Backend API End-to-End Test Suite', () => {
 
   // 8. Create Appointment
   it('POST /api/v1/bookings/create books an appointment and creates consultation room', async () => {
+    const randomFutureTime = new Date(Date.now() + 86400000 + Math.floor(Math.random() * 100000000)).toISOString();
     const res = await request(app)
       .post('/api/v1/bookings/create')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         lawyer_id: testLawyerId,
         consultation_mode: 'VIDEO',
-        scheduled_start: '2026-10-20T10:00:00.000Z',
+        scheduled_start: randomFutureTime,
         client_case_brief: 'Discussion regarding tenant notice',
       });
 

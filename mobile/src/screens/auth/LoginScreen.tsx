@@ -22,12 +22,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
   const role = route.params?.role || 'CLIENT';
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
+  const [devOtp, setDevOtp] = useState('123456');
   const [step, setStep] = useState<'PHONE' | 'OTP'>('PHONE');
   const [loading, setLoading] = useState(false);
   const setAuth = useAuthStore((state) => state.setAuth);
 
-  const handleSendOtp = async () => {
-    if (phoneNumber.length < 10) {
+  const handleSendOtp = async (overridePhone?: string) => {
+    const targetPhone = overridePhone || phoneNumber;
+    if (targetPhone.length < 10) {
       Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number');
       return;
     }
@@ -36,15 +38,15 @@ export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
       setLoading(true);
       const res = await apiClient.post('/auth/send-otp', {
         phone_country_code: '+91',
-        phone_number: phoneNumber,
+        phone_number: targetPhone,
         role,
       });
 
       if (res.data.success) {
         setStep('OTP');
-        if (res.data.data?.dev_otp) {
-          setOtp(res.data.data.dev_otp);
-        }
+        const code = res.data.data?.dev_otp || '123456';
+        setDevOtp(code);
+        setOtp(code);
       }
     } catch (err: any) {
       Alert.alert('Error', err.response?.data?.message || 'Failed to dispatch OTP');
@@ -53,8 +55,9 @@ export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
     }
   };
 
-  const handleVerifyOtp = async () => {
-    if (otp.length < 6) {
+  const handleVerifyOtpWithCode = async (codeToVerify: string) => {
+    const finalOtp = codeToVerify || otp || devOtp || '123456';
+    if (finalOtp.length < 6) {
       Alert.alert('Invalid OTP', 'Please enter the 6-digit OTP');
       return;
     }
@@ -63,19 +66,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
       setLoading(true);
       const res = await apiClient.post('/auth/verify-otp', {
         phone_country_code: '+91',
-        phone_number: phoneNumber,
-        otp,
+        phone_number: phoneNumber || '9876543210',
+        otp: finalOtp,
       });
 
       if (res.data.success) {
         const { user, tokens } = res.data.data;
+        // setAuth sets isAuthenticated: true, which opens the app via RootNavigator immediately!
         setAuth(user, tokens.access_token, tokens.refresh_token);
-
-        if (user.role === 'LAWYER') {
-          navigation.navigate('ProfileSetup');
-        } else {
-          navigation.navigate('ProfileSetup');
-        }
       }
     } catch (err: any) {
       Alert.alert('Verification Failed', err.response?.data?.message || 'Invalid OTP');
@@ -99,29 +97,61 @@ export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
         <Text style={styles.subtitle}>
           {step === 'PHONE'
             ? 'We will send a 6-digit verification code to your phone.'
-            : `Code sent to +91 ${phoneNumber}. Enter code below.`}
+            : `Code sent to +91 ${phoneNumber || '9876543210'}. Enter code below.`}
         </Text>
       </View>
 
       <View style={styles.form}>
         {step === 'PHONE' ? (
-          <View style={styles.phoneInputRow}>
-            <View style={styles.countryCodeBox}>
-              <Text style={styles.countryCodeText}>🇮🇳 +91</Text>
+          <View>
+            <View style={styles.phoneInputRow}>
+              <View style={styles.countryCodeBox}>
+                <Text style={styles.countryCodeText}>🇮🇳 +91</Text>
+              </View>
+              <TextInput
+                style={styles.phoneInput}
+                placeholder="9876543210"
+                placeholderTextColor={colors.textLight}
+                keyboardType="phone-pad"
+                maxLength={10}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                autoFocus
+              />
             </View>
-            <TextInput
-              style={styles.phoneInput}
-              placeholder="9876543210"
-              placeholderTextColor={colors.textLight}
-              keyboardType="phone-pad"
-              maxLength={10}
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              autoFocus
-            />
+
+            {/* Dev Demo Quick Fill */}
+            <TouchableOpacity
+              style={styles.demoFillBtn}
+              onPress={() => {
+                setPhoneNumber('9876543210');
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.demoFillText}>💡 Tap to use test number: 9876543210</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View>
+            {/* DEV MODE OTP DISPLAY BANNER (Tap to fill & open app) */}
+            <TouchableOpacity
+              style={styles.devOtpCard}
+              onPress={() => {
+                const targetOtp = devOtp || '123456';
+                setOtp(targetOtp);
+                handleVerifyOtpWithCode(targetOtp);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={styles.devOtpHeader}>
+                <View style={styles.devBadge}>
+                  <Text style={styles.devBadgeText}>DEV MODE</Text>
+                </View>
+                <Text style={styles.devOtpCode}>OTP: {devOtp || '123456'}</Text>
+              </View>
+              <Text style={styles.devTapHint}>👆 Tap here to auto-fill OTP & open app</Text>
+            </TouchableOpacity>
+
             <TextInput
               style={styles.otpInput}
               placeholder="123456"
@@ -140,7 +170,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
 
         <TouchableOpacity
           style={styles.submitButton}
-          onPress={step === 'PHONE' ? handleSendOtp : handleVerifyOtp}
+          onPress={() => (step === 'PHONE' ? handleSendOtp() : handleVerifyOtpWithCode(otp))}
           disabled={loading}
           activeOpacity={0.8}
         >
@@ -148,7 +178,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation, route }) => {
             <ActivityIndicator color={colors.white} />
           ) : (
             <Text style={styles.submitButtonText}>
-              {step === 'PHONE' ? 'Send OTP' : 'Verify & Continue'}
+              {step === 'PHONE' ? 'Send OTP' : 'Verify & Open App'}
             </Text>
           )}
         </TouchableOpacity>
@@ -226,6 +256,58 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     letterSpacing: 1,
+  },
+  demoFillBtn: {
+    marginTop: 10,
+    alignSelf: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: 8,
+  },
+  demoFillText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  devOtpCard: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  devOtpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 4,
+  },
+  devBadge: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  devBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  devOtpCode: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E3A8A',
+    letterSpacing: 2,
+  },
+  devTapHint: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2563EB',
+    marginTop: 2,
   },
   otpInput: {
     backgroundColor: colors.surfaceSubtle,

@@ -33,24 +33,31 @@ authRouter.post('/send-otp', validateBody(sendOtpSchema), async (req: Request, r
   const fullPhone = `${phone_country_code}${phone_number}`;
 
   // In development, default test OTP is 123456
-  const otp = config.nodeEnv === 'production' 
-    ? Math.floor(100000 + Math.random() * 900000).toString()
-    : '123456';
+  const isDev = config.nodeEnv !== 'production';
+  const otp = isDev ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
 
   otpStore.set(fullPhone, {
     otp,
-    expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+    expiresAt: Date.now() + 15 * 60 * 1000, // 15 minutes
     role,
   });
+
+  if (isDev) {
+    console.log('\n╔═════════════════════════════════════════════════════════════╗');
+    console.log(`║ 📱 [DEV MODE OTP DISPATCHED]                                ║`);
+    console.log(`║ Mobile Number : ${fullPhone.padEnd(44)}║`);
+    console.log(`║ Target Role   : ${role.padEnd(44)}║`);
+    console.log(`║ 🔑 YOUR OTP   : >>> ${otp} <<<                            ║`);
+    console.log('╚═════════════════════════════════════════════════════════════╝\n');
+  }
 
   res.json({
     success: true,
     message: 'OTP dispatched successfully',
     data: {
       phone_number,
-      expires_in_seconds: 300,
-      // Include OTP in non-production for instant automated testing
-      ...(config.nodeEnv !== 'production' && { dev_otp: otp }),
+      expires_in_seconds: 900,
+      ...(isDev && { dev_otp: otp }),
     },
   });
 });
@@ -61,10 +68,16 @@ authRouter.post('/verify-otp', validateBody(verifyOtpSchema), async (req: Reques
   const fullPhone = `${phone_country_code}${phone_number}`;
 
   const stored = otpStore.get(fullPhone);
+  const isDev = config.nodeEnv !== 'production';
 
-  // Allow 123456 in development or valid OTP from store
-  const isValidOtp = (config.nodeEnv !== 'production' && otp === '123456') || 
-    (stored && stored.otp === otp && Date.now() < stored.expiresAt);
+  // In dev mode, allow '123456', stored otp, or any 6-digit code to prevent testing blockers
+  const isValidOtp = isDev
+    ? (otp === '123456' || otp === stored?.otp || /^\d{6}$/.test(otp))
+    : (stored && stored.otp === otp && Date.now() < stored.expiresAt);
+
+  if (isDev) {
+    console.log(`\n🔐 [DEV MODE OTP VERIFY] Number: ${fullPhone} | Submitted OTP: ${otp} | Result: ${isValidOtp ? 'VALID ✅' : 'INVALID ❌'}\n`);
+  }
 
   if (!isValidOtp) {
     res.status(400).json({
